@@ -13,6 +13,9 @@
   <property name="windowTitle">
    <string>Brute Force</string>
   </property>
+  <property name="styleSheet">
+   <string notr="true">background-color: qlineargradient(spread:pad, x1:0, y1:0, x2:1, y2:0, stop:0 rgba(255, 178, 102, 255), stop:0.55 rgba(235, 148, 61, 255), stop:0.98 rgba(0, 0, 0, 255), stop:1 rgba(0, 0, 0, 0));</string>
+  </property>
   <layout class="QVBoxLayout" name="verticalLayout">
    <item>
     <widget class="QGroupBox" name="groupBox">
@@ -27,6 +30,9 @@
           <horstretch>0</horstretch>
           <verstretch>0</verstretch>
          </sizepolicy>
+        </property>
+        <property name="styleSheet">
+         <string notr="true">background-color: rgba(255, 178, 102, 255)</string>
         </property>
         <property name="title">
          <string>Вектор</string>
@@ -73,6 +79,9 @@
           <verstretch>0</verstretch>
          </sizepolicy>
         </property>
+        <property name="styleSheet">
+         <string notr="true">background-color: rgba(255, 178, 102, 255)</string>
+        </property>
         <property name="title">
          <string>Від</string>
         </property>
@@ -80,7 +89,7 @@
          <item>
           <widget class="QSpinBox" name="from_1">
            <property name="styleSheet">
-            <string notr="true">background-color: rgb(184, 184, 184);</string>
+            <string notr="true">background-color: rgb(255, 255, 255);</string>
            </property>
            <property name="minimum">
             <number>1</number>
@@ -90,7 +99,7 @@
          <item>
           <widget class="QSpinBox" name="from_2">
            <property name="styleSheet">
-            <string notr="true">background-color: rgb(184, 184, 184);</string>
+            <string notr="true">background-color: rgb(255, 255, 255);</string>
            </property>
            <property name="minimum">
             <number>1</number>
@@ -100,7 +109,7 @@
          <item>
           <widget class="QSpinBox" name="from_3">
            <property name="styleSheet">
-            <string notr="true">background-color: rgb(184, 184, 184);</string>
+            <string notr="true">background-color: rgb(255, 255, 255);</string>
            </property>
            <property name="minimum">
             <number>1</number>
@@ -118,6 +127,9 @@
           <verstretch>0</verstretch>
          </sizepolicy>
         </property>
+        <property name="styleSheet">
+         <string notr="true">background-color: rgba(255, 178, 102, 255)</string>
+        </property>
         <property name="title">
          <string>До</string>
         </property>
@@ -125,7 +137,7 @@
          <item>
           <widget class="QSpinBox" name="to_1">
            <property name="styleSheet">
-            <string notr="true">background-color: rgb(184, 184, 184);</string>
+            <string notr="true">background-color: rgb(255, 255, 255);</string>
            </property>
            <property name="value">
             <number>10</number>
@@ -135,7 +147,7 @@
          <item>
           <widget class="QSpinBox" name="to_2">
            <property name="styleSheet">
-            <string notr="true">background-color: rgb(184, 184, 184);</string>
+            <string notr="true">background-color: rgb(184background-color: rgb(255, 255, 255); 184, 184);</string>
            </property>
            <property name="value">
             <number>10</number>
@@ -145,7 +157,7 @@
          <item>
           <widget class="QSpinBox" name="to_3">
            <property name="styleSheet">
-            <string notr="true">background-color: rgb(184, 184, 184);</string>
+            <string notr="true">background-color: rgb(255, 255, 255);</string>
            </property>
            <property name="buttonSymbols">
             <enum>QAbstractSpinBox::UpDownArrows</enum>
@@ -166,6 +178,9 @@
           <verstretch>0</verstretch>
          </sizepolicy>
         </property>
+        <property name="styleSheet">
+         <string notr="true">background-color: rgba(255, 178, 102, 255)</string>
+        </property>
         <property name="title">
          <string>Результат</string>
         </property>
@@ -173,7 +188,7 @@
          <item>
           <widget class="QSpinBox" name="res_1">
            <property name="styleSheet">
-            <string notr="true">background-color: rgb(184, 184, 184);</string>
+            <string notr="true">background-color: rgb(255, 255, 255);</string>
            </property>
            <property name="alignment">
             <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
@@ -189,7 +204,7 @@
          <item>
           <widget class="QSpinBox" name="res_2">
            <property name="styleSheet">
-            <string notr="true">background-color: rgb(184, 184, 184);</string>
+            <string notr="true">background-color: rgb(255, 255, 255);</string>
            </property>
            <property name="alignment">
             <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
@@ -205,7 +220,7 @@
          <item>
           <widget class="QSpinBox" name="res_3">
            <property name="styleSheet">
-            <string notr="true">background-color: rgb(184, 184, 184);</string>
+            <string notr="true">background-color: rgb(255, 255, 255);</string>
            </property>
            <property name="alignment">
             <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
@@ -229,6 +244,9 @@
           <verstretch>0</verstretch>
          </sizepolicy>
         </property>
+        <property name="styleSheet">
+         <string notr="true">background-color: rgba(255, 178, 102, 255)</string>
+        </property>
         <property name="title">
          <string>Крок</string>
         </property>
@@ -236,7 +254,7 @@
          <item row="0" column="0">
           <widget class="QSpinBox" name="st_1">
            <property name="styleSheet">
-            <string notr="true">background-color: rgb(184, 184, 184);</string>
+            <string notr="true">background-color: rgb(255, 255, 255);</string>
            </property>
            <property name="value">
             <number>1</number>
@@ -246,7 +264,7 @@
          <item row="1" column="0">
           <widget class="QSpinBox" name="st_2">
            <property name="styleSheet">
-            <string notr="true">background-color: rgb(184, 184, 184);</string>
+            <string notr="true">background-color: rgb(255, 255, 255);</string>
            </property>
            <property name="value">
             <number>1</number>
@@ -256,7 +274,7 @@
          <item row="2" column="0">
           <widget class="QSpinBox" name="st_3">
            <property name="styleSheet">
-            <string notr="true">background-color: rgb(184, 184, 184);</string>
+            <string notr="true">background-color: rgb(255, 255, 255);</string>
            </property>
            <property name="value">
             <number>1</number>
