@@ -180,9 +180,9 @@ class PolynomialBuilder(object):
             ax = axes[0][index]  # real and estimated graphs
             norm_ax = axes[1][index]  # abs residual graph
             ax.set_xticks(np.arange(0, self._solution.n + 1, 5))
-            ax.plot(np.arange(1, self._solution.n + 1), self._solution.Y_[:, index],
+            ax.plot(np.arange(1, self._solution.n + 1), self._solution.Y[:, index],
                     'r-', label='$Y_{0}$'.format(index + 1))
-            ax.plot(np.arange(1, self._solution.n + 1), self._solution.F_[:, index],
+            ax.plot(np.arange(1, self._solution.n + 1), self._solution.F[:, index],
                     'b-', label='$F_{0}$'.format(index + 1))
             ax.legend(loc='upper right', fontsize=16)
             ax.set_title('Coordinate {0}'.format(index + 1))
@@ -190,7 +190,7 @@ class PolynomialBuilder(object):
 
             norm_ax.set_xticks(np.arange(0, self._solution.n + 1, 5))
             norm_ax.plot(np.arange(1, self._solution.n + 1),
-                         abs(self._solution.Y_[:, index] - self._solution.F_[:, index]), 'g-')
+                         abs(self._solution.Y[:, index] - self._solution.F[:, index]), 'g-')
             norm_ax.set_title('Residual {0}'.format(index + 1))
             norm_ax.grid()
 
