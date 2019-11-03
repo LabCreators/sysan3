@@ -194,6 +194,6 @@ class MainWindow(QDialog, Ui_Form):
 
 # -----------------------------------------------------#
 form = MainWindow()
-form.setWindowTitle('СА - 3 (Куриленко, Онанко, Титова, Рубленко)')
+form.setWindowTitle('System Analysis - Lab3')
 form.show()
 sys.exit(app.exec_())
