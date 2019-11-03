@@ -500,7 +500,7 @@
             <string notr="true">background-color: rgb(184, 184, 184);</string>
            </property>
            <property name="text">
-            <string>Комбінований</string>
+            <string>Вид 1</string>
            </property>
            <property name="checked">
             <bool>true</bool>
@@ -513,17 +513,7 @@
             <string notr="true">background-color: rgb(184, 184, 184);</string>
            </property>
            <property name="text">
-            <string>Лаґерра</string>
-           </property>
-          </widget>
-         </item>
-         <item>
-          <widget class="QRadioButton" name="radio_sh_cheb_2">
-           <property name="styleSheet">
-            <string notr="true">background-color: rgb(184, 184, 184);</string>
-           </property>
-           <property name="text">
-            <string>Зміщений Чеб.</string>
+            <string>Вид 2</string>
            </property>
           </widget>
          </item>
@@ -1153,7 +1143,6 @@ p, li { white-space: pre-wrap; }
  </widget>
  <tabstops>
   <tabstop>radio_combined_cheb</tabstop>
-  <tabstop>radio_sh_cheb_2</tabstop>
   <tabstop>x1_deg</tabstop>
   <tabstop>x2_deg</tabstop>
   <tabstop>x3_deg</tabstop>
@@ -1356,22 +1345,6 @@ p, li { white-space: pre-wrap; }
     <hint type="sourcelabel">
      <x>86</x>
      <y>78</y>
-    </hint>
-    <hint type="destinationlabel">
-     <x>309</x>
-     <y>199</y>
-    </hint>
-   </hints>
-  </connection>
-  <connection>
-   <sender>radio_sh_cheb_2</sender>
-   <signal>toggled(bool)</signal>
-   <receiver>Form</receiver>
-   <slot>type_modified(bool)</slot>
-   <hints>
-    <hint type="sourcelabel">
-     <x>86</x>
-     <y>150</y>
     </hint>
     <hint type="destinationlabel">
      <x>309</x>
