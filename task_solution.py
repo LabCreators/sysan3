@@ -1,236 +1,489 @@
-from copy import deepcopy
+import pandas as pd
+from basis_generators import BasisGenerator
+from functools import reduce
+from optimization_methods import *
+import itertools
+import numpy as np
+from custom_exceptions import *
+from scipy.sparse.linalg import cg
+from sklearn.linear_model import Lasso, Ridge, LinearRegression
+from additional_functions import functions
+from arima import forecast
 
-from tabulate import tabulate as tb
-from math import pi
 
-from syst_solution import *
-from solve import Solve
+class Solve(object):
 
+    def __init__(self, d):
+        self.n = d['samples']
+        self.deg = d['dimensions']
+        self.filename_input = d['input_file']
+        self.filename_output = d['output_file']
+        self.p = d['degrees']
+        self.weights = d['weights']
+        self.poly_type = d['poly_type']
+        self.splitted_lambdas = d['lambda_multiblock']
+        self.solving_method = d['method']
+        self.eps = 1E-6
+        self.norm_error = 0.0
+        self.error = 0.0
 
-class SolveExpTh(Solve):
+    offset = 1e-10
 
-    def built_B(self):
-        def B_average():
-            """
-            Vector B as average of max and min in Y. B[i] =max Y[i,:]
-            :return:
-            """
-            b = np.tile((self.Y.max(axis=1) + self.Y.min(axis=1)) / 2, (1, self.dim[3]))
-            return b
+    def _prepare_data(self):
+        new_cols = list(
+            itertools.chain(*[['X{}'.format(i + 1)] * self.deg[i] if i != len(self.deg) - 1 else ['Y'] * self.deg[i]
+                              for i in range(len(self.deg))]))
+        new_cols = np.unique([[el + str(i) for i in range(1, new_cols.count(el) + 1)] for el in new_cols])
+        if len(new_cols.shape) > 1:
+            new_cols = list(itertools.chain(*new_cols))
+        dt = pd.read_csv(self.filename_input, sep='\t', header=None).astype(float)
+        try:
+            dt.columns = new_cols
+        except:
+            dt = dt.iloc[:, :-2]
+            dt.columns = new_cols
+        return dt
 
-        def B_scaled():
-            """
-            Vector B  = Y
-            :return:
-            """
-            return deepcopy(self.Y)
-
-        if self.weights == 'average':
-            self.B = B_average()
-        elif self.weights == 'scaled':
-            self.B = B_scaled()
+    def _minimize_equation(self, A, b):
+        """
+        Finds such vector x that |Ax-b|->min.
+        :param A: Matrix A
+        :param b: Vector b
+        :return: Vector x
+        """
+        if self.solving_method == 'LSTM':
+            return np.linalg.lstsq(A, b)[0]
+        elif self.solving_method == 'conjucate':
+            return cg(np.dot(A, A.T), b, tol=self.eps)[0] #conjugate_gradient_method(A, b, self.eps)
+        elif self.solving_method == 'coordDesc':
+            return Ridge(alpha=self.eps).fit(A, b).coef_ #coordinate_descent(A, b, self.eps) #Ridge().fit(A, b).coef_
         else:
-            exit('B not defined')
-        self.B_log = np.log(self.B + 1 + self.OFFSET)
+            raise MethodNotFilledException
 
-    def built_A(self):
-        """
-        built matrix A on shifted polynomials Chebysheva
-        :param self.p:mas of deg for vector X1,X2,X3 i.e.
-        :param self.X: it is matrix that has vectors X1 - X3 for example
-        :return: matrix A as ndarray
-        """
+    def _norm_data(self, data):
+        normalized_data = data.copy(deep=True)
+        agg = normalized_data.agg([min, max])
 
-        def mA():
-            """
-            :param X: [X1, X2, X3]
-            :param p: [p1,p2,p3]
-            :return: m = m1*p1+m2*p2+...
-            """
-            m = 0
-            for i in range(len(self.X)):
-                m += self.X[i].shape[1] * (self.deg[i] + 1)
-            return m
+        for col in normalized_data.columns:
+            min_val = agg.loc['min', col]
+            max_val = agg.loc['max', col]
+            normalized_data[col] = normalized_data[col].apply(lambda x: (x - min_val) / (max_val - min_val))
 
-        def coordinate(v, deg):
-            """
-            :param v: vector
-            :param deg: chebyshev degree polynom
-            :return:column with chebyshev value of coordiate vector
-            """
-            c = np.ndarray(shape=(self.n, 1), dtype=float)
-            for i in range(self.n):
-                c[i, 0] = self.poly_f(deg, v[i])
-            return c
+        return normalized_data
 
-        def vector(vec, p):
-            """
-            :param vec: it is X that consist of X11, X12, ... vectors
-            :param p: max degree for chebyshev polynom
-            :return: part of matrix A for vector X1
-            """
-            n, m = vec.shape
-            a = np.ndarray(shape=(n, 0), dtype=float)
-            for j in range(m):
-                for i in range(p):
-                    ch = coordinate(vec[:, j], i)
-                    a = np.append(a, ch, 1)
-            return a
+    def _create_train_dataset(self, data):
+        '''
+        build matrix X and Y
+        :return:
+        '''
+        X = data.loc[:, [el for el in data.columns if el.find('X') != -1]]
+        Y = data.loc[:, [el for el in data.columns if el.find('Y') != -1]]
 
-        # k = mA()
-        A = np.ndarray(shape=(self.n, 0), dtype=float)
-        for i in range(len(self.X)):
-            vec = vector(self.X[i], self.deg[i])
-            A = np.append(A, vec, 1)
-        self.A_log = np.matrix(np.tanh(A))
-        self.A = np.exp(self.A_log)
+        return X, Y
 
-    def lamb(self):
-        lamb = np.ndarray(shape=(self.A.shape[1], 0), dtype=float)
-        for i in range(self.dim[3]):
-            if self.splitted_lambdas:
-                boundary_1 = self.deg[0] * self.dim[0]
-                boundary_2 = self.deg[1] * self.dim[1] + boundary_1
-                lamb1 = self._minimize_equation(self.A_log[:, :boundary_1], self.B_log[:, i])
-                lamb2 = self._minimize_equation(self.A_log[:, boundary_1:boundary_2], self.B_log[:, i])
-                lamb3 = self._minimize_equation(self.A_log[:, boundary_2:], self.B_log[:, i])
-                lamb = np.append(lamb, np.concatenate((lamb1, lamb2, lamb3)), axis=1)
+    def _get_B(self, Y):
+        if self.weights == 'average':
+            Y_res = (Y.max(axis=1) + Y.min(axis=1)) / 2  # arguable, may be need not to normalize Y before this operation
+            try:
+                Y_ = np.tile(Y_res.values, (1, self.deg[-1])).reshape((self.n, self.deg[-1]))
+                Y_log = np.log(Y_ + self.offset + 1)
+                return Y_, Y_log
+            except:
+                return Y, np.log(Y + self.offset + 1)
+        elif self.weights == 'width_interval':
+            Y_res = (Y.max(axis=1) - Y.min(axis=1)).values
+            try:
+                Y_ = np.tile(Y_res, (1, self.deg[-1])).reshape((self.n, self.deg[-1]))
+                Y_log = np.log(Y_ + self.offset + 1)
+                return Y_, Y_log
+            except:
+                return Y, np.log(Y + self.offset + 1)
+        elif self.weights == 'scaled':
+            return Y, np.log(Y + self.offset + 1)
+
+    def _evaluate_polynom(self, coefs, x):
+        return sum([np.array(coef) * pow(x, i) for i, coef in enumerate(coefs)])
+
+    def _get_A(self, data, polynoms_degrees):
+        A = pd.DataFrame()
+        for i, degree in enumerate(polynoms_degrees):
+            if self.poly_type in functions.keys():
+                func = functions.get(self.poly_type)
+                A = pd.concat([A, data.apply(lambda x: func(degree, x))], axis=1)
             else:
-                lamb = np.append(lamb, self._minimize_equation(self.A_log, self.B_log[:, i]), axis=1)
-        self.Lamb = np.matrix(lamb)  # Lamb in full events
+                gen = BasisGenerator(degree, self.poly_type)
+                coefs = list(map(lambda x: x, list(gen.generate())[-1]))
+                A = pd.concat([A, data.apply(lambda x: self._evaluate_polynom(coefs, x))], axis=1)
+        A_log = 1 + A + self.offset
+        return A, A_log.apply(lambda x: [np.log(abs(el)) if isinstance(el, float) else 0 for el in x])
 
-    def psi(self):
-        def built_psi(lamb):
-            """
-            return matrix xi1 for b1 as matrix
-            :param A:
-            :param lamb:
-            :param p:
-            :return: matrix psi, for each Y
-            """
-            psi = np.ndarray(shape=(self.n, self.mX), dtype=float)
-            q = 0  # iterator in lamb and A
-            l = 0  # iterator in columns psi
-            for k in range(len(self.X)):  # choose X1 or X2 or X3
-                for s in range(self.X[k].shape[1]):  # choose X11 or X12 or X13
-                    for i in range(self.X[k].shape[0]):
-                        psi[i, l] = self.A_log[i, q:q + self.deg[k]] * lamb[q:q + self.deg[k], 0]
-                    q += self.deg[k]
-                    l += 1
-            return np.matrix(psi)
+    def _get_lambdas(self, A, Y):
+        lambdas = pd.DataFrame(columns=['lambda_{}'.format(i+1) for i in range(self.deg[-1])])
+        A = pd.DataFrame(A)
+        Y = pd.DataFrame(Y)
+        for i, j in itertools.product(range(self.deg[-1]), range(self.deg[-1])):
+            if self.splitted_lambdas:
+                use_cols = [el for el in A.columns if el.find('X{}'.format(j + 1)) != -1]
+                train_data = A.loc[:, use_cols]
+                a = train_data.T * Y.loc[:, Y.columns[i]]
+                lambdas.loc[i, lambdas.columns[j]] = [self._minimize_equation(a.T.values, Y.loc[:, Y.columns[i]])]
+            else:
+                a = A.T * Y.loc[:, Y.columns[i]].fillna(A.T.mean().mean())
+                lambdas.loc[i, lambdas.columns[j]] = [self._minimize_equation(a.fillna(a.mean().mean()).T.apply(lambda x:
+                                                        [el.coef[0] if not isinstance(el, float) else el for el in x]),
+                                                                              Y.fillna(Y.mean()).loc[:, Y.columns[i]])]
+        return lambdas
 
-        self.Psi = list()
-        self.Psi_tanh = list()
-        for i in range(self.dim[3]):
-            self.Psi.append(np.exp(built_psi(self.Lamb[:, i])) - 1)  # Psi = exp(sum(lambda*tanh(phi))) - 1
-            self.Psi_tanh.append(np.tanh(self.Psi[-1]))
+    def _get_psi(self, A, lambdas):
+        if self.solving_method == 'LSTM':
+            if self.splitted_lambdas:
+                psi = [[A.loc[:, [el for el in A.columns if el.find('X{}'.format(i + 1)) != -1]
+                        ] * lambdas.loc[j, 'lambda_{}'.format(i + 1)][0] for i in range(self.deg[-1])] for j in
+                       range(self.deg[-1])]
+            else:
+                psi = [[A * lambdas.loc[j, 'lambda_{}'.format(i + 1)][0] for i in range(self.deg[-1])] for j in
+                       range(self.deg[-1])]
+        elif self.solving_method == 'conjucate':
+            if self.splitted_lambdas:
+                psi = [[(A.T.loc[[el for el in A.columns if el.find('X{}'.format(i + 1)) != -1],:
+                        ] * lambdas.loc[j, 'lambda_{}'.format(i + 1)][0]).T for i in range(self.deg[-1])] for j in
+                       range(self.deg[-1])]
+            else:
+                psi = [[(A.T * lambdas.loc[j, 'lambda_{}'.format(i + 1)][0]).T for i in range(self.deg[-1])] for j in
+                       range(self.deg[-1])]
+        else:
+            if self.splitted_lambdas:
+                psi = [[A.loc[:, [el for el in A.columns if el.find('X{}'.format(i + 1)) != -1]
+                        ] * lambdas.loc[j, 'lambda_{}'.format(i + 1)][0] for i in range(self.deg[-1])] for j in
+                       range(self.deg[-1])]
+            else:
+                psi = [[A * lambdas.loc[j, 'lambda_{}'.format(i + 1)][0] for i in range(self.deg[-1])] for j in
+                       range(self.deg[-1])]
+        psi_log = psi
+        psi = [[el1.apply(lambda x: [np.exp(s) if isinstance(s, float) else np.exp(s.coef[0]) for s in x])
+                for el1 in el] for el in psi_log]
+        return psi, psi_log
 
+    def _get_A1(self, psi, y):
+        y = pd.DataFrame(y)
+        return [[self._minimize_equation(psi[i][j][:].fillna(0), y.loc[:, y.columns[i]].apply(lambda x: abs(x) if x>0 else abs(-x)) + 1 + self.offset)
+                 for j in range(self.deg[-1])] for i in range(self.deg[-1])]
 
-    def built_a(self):
-        self.a = np.ndarray(shape=(self.mX, 0), dtype=float)
-        for i in range(self.dim[3]):
-            a1 = self._minimize_equation(self.Psi_tanh[i][:, :self.dim_integral[0]],
-                                         np.log(self.Y[:, i] + 1 + self.OFFSET))
-            a2 = self._minimize_equation(self.Psi_tanh[i][:, self.dim_integral[0]:self.dim_integral[1]],
-                                         np.log(self.Y[:, i] + 1 + self.OFFSET))
-            a3 = self._minimize_equation(self.Psi_tanh[i][:, self.dim_integral[1]:],
-                                         np.log(self.Y[:, i] + 1 + self.OFFSET))
-            # temp = self._minimize_equation(self.Psi[i], self.Y[:, i])
-            # self.a = np.append(self.a, temp, axis=1)
-            self.a = np.append(self.a, np.vstack((a1, a2, a3)), axis=1)
+    def _get_Fi(self, psi, a1):
+        if self.solving_method == 'LSTM':
+            if self.splitted_lambdas:
+                fi = np.array([[psi[i][j] * a1[i][j] for j in range(self.deg[-1])] for i in range(self.deg[-1])])
+            else:
+                fi = [[psi[i][j] * a1[i][j] for j in range(self.deg[-1])] for i in range(self.deg[-1])]
+        elif self.solving_method == 'conjucate':
+            if self.splitted_lambdas:
+                fi = np.array([[(psi[i][j].T * a1[i][j]).T for j in range(self.deg[-1])] for i in range(self.deg[-1])])
+            else:
+                fi = [[(psi[i][j].T * a1[i][j]).T for j in range(self.deg[-1])] for i in range(self.deg[-1])]
+        else:
+            if self.splitted_lambdas:
+                fi = np.array([[psi[i][j] * a1[i][j] for j in range(self.deg[-1])] for i in range(self.deg[-1])])
+            else:
+                fi = [[psi[i][j] * a1[i][j] for j in range(self.deg[-1])] for i in range(self.deg[-1])]
+        fi = [reduce(lambda x, y: pd.concat([x, y], axis=1), fi[i]) for i in range(self.deg[-1])]
+        fi_log = fi
+        fi = [el.apply(lambda x: np.exp(x) - 1 - self.offset) for el in fi_log]
+        return fi, fi_log
 
-    def built_F1i(self, psi, a):
-        """
-        not use; it used in next function
-        :param psi: matrix psi (only one
-        :param a: vector with shape = (6,1)
-        :param dim_integral:  = [3,4,6]//fibonacci of deg
-        :return: matrix of (three) components with F1 F2 and F3
-        """
-        m = len(self.X)  # m  = 3
-        F1i = np.ndarray(shape=(self.n, m), dtype=float)
-        k = 0  # point of beginning column to multiply
-        for j in range(m):  # 0 - 2
-            for i in range(self.n):  # 0 - 49
-                F1i[i, j] = psi[i, k:self.dim_integral[j]] * a[k:self.dim_integral[j], 0]
-            k = self.dim_integral[j]
-        return np.matrix(F1i)
+    def _get_coefs(self, fi, y):
+        y = pd.DataFrame(y)
+        if self.solving_method == 'conjucate':
+            return [self._minimize_equation(np.dot(fi[i].fillna(0).T, fi[i].fillna(0)),
+                                        np.dot(fi[i].fillna(0).T, np.log(1 + y.iloc[:, i] + self.offset)))
+                    for i in range(self.deg[-1])]
+        else:
+            return [self._minimize_equation(fi[i].fillna(0).replace([-np.inf, np.inf], [0, 0]),
+                    y.iloc[:, i].apply(lambda x: np.log(x) if x > 0 else np.log(-x)).replace([-np.inf, np.inf], [0, 0]))
+                    for i in range(self.deg[-1])]
 
-    def built_Fi(self):
-        self.Fi_tanh = list()
-        self.Fi = list()
-        for i in range(self.dim[3]):
-            self.Fi.append(np.exp(self.built_F1i(self.Psi_tanh[i], self.a[:, i])) - 1)  # Fi = exp(sum(a*tanh(Psi))) - 1
-            self.Fi_tanh.append(np.tanh(self.Fi[i]))
+    # TODO Fitness function for normalize version
+    def _get_fitness_function(self, fi, y, coefs):
+        y = pd.DataFrame(y)
+        fitness = [np.dot(fi[i].replace([-np.inf, np.inf], [0, 0]), coefs[i]) for i in range(self.deg[-1])]
+        fitness_log = fitness
+        fitness = np.exp(fitness_log) - 1
+        norm_error = [(y.iloc[:, i] - fitness[i]) for i in range(self.deg[-1])]
+        return fitness, fitness_log, norm_error
 
-    def built_c(self):
-        self.c = np.ndarray(shape=(len(self.X), 0), dtype=float)
-        for i in range(self.dim[3]):
-            self.c = np.append(self.c, self._minimize_equation(self.Fi_tanh[i], np.log(self.Y[:, i] + 1 + self.OFFSET))
-                               , axis=1)
+    def _aggregate(self, values, coeffs):
+        return np.exp(np.dot(np.log(1 + values + self.offset), coeffs)) - 1
 
-    def built_F(self):
-        F = np.ndarray(self.Y.shape, dtype=float)
-        for j in range(F.shape[1]):  # 2
-            for i in range(F.shape[0]):  # 50
-                F[i, j] = self.Fi_tanh[j][i, :] * self.c[:, j]
-        self.F = np.exp(np.matrix(F)) - 1 - self.OFFSET  # F = exp(sum(c*tanh(Fi))) - 1
-        self.norm_error = []
-        for i in range(self.Y.shape[1]):
-            self.norm_error.append(np.linalg.norm(self.Y[:, i] - self.F[:, i], np.inf))
+    def _calculate_polynoms(self, x, degree, poly_type):
+        res = []
+        for deg in range(degree):
+            coefs = list(BasisGenerator(deg, poly_type).generate())
+            if coefs:
+                coefs = coefs[-1].coef
+            else:
+                coefs = [1]
+            res.append(self._evaluate_polynom(coefs, x))
+        return res
 
-    def aggregate(self, values, coeffs):
-        return np.exp(np.dot(np.tanh(values), coeffs)) - 1
+    def _calculate_value(self, X, y, lambdas, coefs, A):
+        use_cols = [['X{}{}'.format(i + 1, j + 1) for j in
+                     range(len([el for el in X.columns if el.find('X{}'.format(i + 1)) != -1]))]
+                    for i in range(len(self.deg))][:-1]
 
-    def show(self):
+        minX = [X[el].min(axis=0).min() for el in use_cols]
+        maxX = [X[el].max(axis=0).max() for el in use_cols]
+        minY = y.min(axis=0).min()
+        maxY = y.max(axis=0).max()
+
+        X_normalized = (X - min(minX)) / (max(maxX) - min(minX))
+        X_splitted = np.split(X_normalized, len(self.p))
+        phi = [self._calculate_polynoms(vector, self.p[i], self.poly_type) for i, vector in enumerate(X_splitted)]
+        psi = list()
+        for i in range(len(self.p)):  # self.p:
+            for j in range(self.deg[i]):
+                psi.append(self._aggregate(phi[i][j], lambdas.iloc[i, i][0][:phi[i][j].shape[1]]))
+
+        psi = pd.DataFrame(psi).fillna(np.random.uniform(pd.DataFrame(psi).dropna().min(axis=1).min(),
+                                                         pd.DataFrame(psi).dropna().max(axis=1).max()))
+        big_phi = list()
+        for i in range(len(self.p)):
+            use_cols = [el for el in X.columns if el.find('X{}'.format(i + 1)) != -1]
+            big_phi.append([self._aggregate(psi.iloc[i, k], A[use_cols])
+                            for k in range(self.deg[-1])])
+        # big_phi = np.array(big_phi).T
+        big_phi = pd.DataFrame(big_phi)
+        result = np.array([self._aggregate(big_phi.loc[:, k].tolist()[0].T,
+                                     coefs.iloc[k, :big_phi.loc[:, k].tolist()[0].shape[0]])
+                           for k in range(self.deg[-1])])
+        result = result * ((maxY) - (minY)) + (minY)
+        return pd.DataFrame(result).fillna(np.random.uniform(pd.DataFrame(result).min(axis=1).min(),
+                                                             pd.DataFrame(result).min(axis=1).min() +
+                                                             np.random.normal(0, 1, size=1)[0]))
+
+    def _build_predicted(self, X, Y, lambdas, coefs, A, steps, use_cols):
+
+        XF = X.loc[:, use_cols].apply(lambda x: forecast(x, steps), axis=0)
+        xf = [X.loc[-s, use_cols] for s in range(1, steps + 1)]
+
+        yf = list(map(lambda x: self._calculate_value(x, Y, lambdas, coefs, A), xf))
+        YF = Y.copy(deep=True)
+        YF[-steps:] = np.array(yf)
+        return XF, YF
+
+    def _save_data(self, data, norm_data, A, norm_A, lambdas, lambdas_norm, psi, psi_norm,
+                   A1, A1_norm, y_new, y_new_normalized, c, c_norm,
+                   fit_res, fit_res_norm, errors, errors_norm, nor_errors, nor_errors_norm):
+        with pd.ExcelWriter(self.filename_output) as writer:
+            data.to_excel(writer, sheet_name='Вхідні дані')
+            A.to_excel(writer, sheet_name='Матриця А')
+            lambdas.to_excel(writer, sheet_name='Значення лямбд')
+            for i in range(len(psi)):
+                temp = reduce(lambda x, y: pd.concat([x, y], axis=1), psi[i])
+                pd.DataFrame(temp).to_excel(writer, sheet_name='PSI{}'.format(i + 1))
+            A1.to_excel(writer, sheet_name='матриця А1')
+            y_new.to_excel(writer, sheet_name='Перебудовані Y')
+            c.to_excel(writer, sheet_name='Коефіцієнти c')
+            fit_res.to_excel(writer, sheet_name='Побудований прогноз')
+            errors.to_excel(writer, sheet_name='Похибки')
+            nor_errors.to_excel(writer, sheet_name='Норми похибок')
+
+            norm_data.to_excel(writer, sheet_name='Вхідні дані (нормалізований варіант)')
+            norm_A.to_excel(writer, sheet_name='Матриця А (нормалізований варіант)')
+            lambdas_norm.to_excel(writer, sheet_name='Значення лямбд (нормалізований варіант)')
+            for i in range(len(psi_norm)):
+                temp = reduce(lambda x, y: pd.concat([x, y], axis=1), psi_norm[i])
+                temp.to_excel(writer, sheet_name='PSI{} (нормалізований варіант)'.format(i + 1))
+            A1_norm.to_excel(writer, sheet_name='матриця А1 (нормалізований варіант)')
+            y_new_normalized.to_excel(writer, sheet_name='Перебудовані Y (нормалізований варіант)')
+            c_norm.to_excel(writer, sheet_name='Коефіцієнти c (нормалізований варіант)')
+            fit_res_norm.to_excel(writer, sheet_name='Побудований прогноз (нормалізований варіант)')
+            errors_norm.to_excel(writer, sheet_name='Похибки (нормалізований варіант)')
+            nor_errors_norm.to_excel(writer, sheet_name='Норми похибок (нормалізований варіант)')
+
+    def print_data(self, data, norm_data, A, norm_A, lambdas, lambdas_norm, psi, psi_norm,
+                   A1, A1_norm, y_new, y_new_normalized, c, c_norm,
+                   fit_res, fit_res_norm, errors, errors_norm, nor_errors, nor_errors_norm, *args):
         text = []
-        text.append('\nError normalised (Y - F)')
-        text.append(tb([self.norm_error]))
+        text.append('Вхідні дані')
+        print('Вхідні дані')
+        print(data.to_string())
+        text.append(data.to_string())
+        print('-------------------------')
+        text.append('-------------------------')
+        print('Матриця А')
+        text.append('Матриця А')
+        print(A.to_string())
+        text.append(A.to_string())
+        print('-------------------------')
+        text.append('-------------------------')
+        print('Значення лямбд')
+        text.append('Значення лямбд')
+        print(lambdas.to_string())
+        text.append(lambdas.to_string())
+        print('-------------------------')
+        text.append('-------------------------')
+        for i in range(len(psi)):
+            temp = reduce(lambda x, y: pd.concat([x, y], axis=1), psi[i])
+            print('PSI{}'.format(i + 1))
+            text.append('PSI{}'.format(i + 1))
+            print(temp.to_string())
+            text.append(temp.to_string())
+            print('---------------------')
+            text.append('---------------------')
+        print('матриця А1')
+        text.append('матриця А1')
+        print(A1.to_string())
+        text.append(A1.to_string())
+        print('-------------------------')
+        text.append('-------------------------')
+        print('Перебудовані Y')
+        text.append('Перебудовані Y')
+        print(y_new.to_string())
+        text.append(y_new.to_string())
+        print('-------------------------')
+        text.append('-------------------------')
+        print('Коефіцієнти c')
+        text.append('Коефіцієнти c')
+        print(c.to_string())
+        text.append(c.to_string())
+        print('-------------------------')
+        text.append('-------------------------')
+        print('Побудований прогноз')
+        text.append(fit_res.to_string())
+        print(fit_res.to_string())
+        text.append('-------------------------')
+        print('-------------------------')
+        text.append('Похибки')
+        print('Похибки')
+        text.append(errors.to_string())
+        print(errors.to_string())
+        text.append('-------------------------')
+        print('-------------------------')
+        text.append('Норми похибок')
+        print('Норми похибок')
+        text.append(nor_errors.to_string())
+        print(nor_errors.to_string())
+        text.append('-------------------------')
+        print('-------------------------')
+        text.append('\n\n')
+        print('\n\n')
+        text.append('Нормалізований варіант')
+        print('Нормалізований варіант')
+        text.append('-------------------------')
+        print('-------------------------')
+        text.append('Вхідні дані')
+        print('Вхідні дані')
+        text.append(norm_data.to_string())
+        print(norm_data.to_string())
+        text.append('-------------------------')
+        print('-------------------------')
+        text.append('Матриця А')
+        print('Матриця А')
+        text.append(norm_A.to_string())
+        print(norm_A.to_string())
+        text.append('-------------------------')
+        print('-------------------------')
+        text.append('Значення лямбд')
+        print('Значення лямбд')
+        text.append(lambdas_norm.to_string())
+        print(lambdas_norm.to_string())
+        text.append('-------------------------')
+        print('-------------------------')
+        for i in range(len(psi_norm)):
+            temp = reduce(lambda x, y: pd.concat([x, y], axis=1), psi_norm[i])
+            print('PSI{}'.format(i + 1))
+            text.append('PSI{}'.format(i + 1))
+            print(temp.to_string())
+            text.append(temp.to_string())
+            print('---------------------')
+            text.append('---------------------')
+        print('матриця А1')
+        text.append('матриця А1')
+        print(A1_norm.to_string())
+        text.append(A1_norm.to_string())
+        print('-------------------------')
+        text.append('-------------------------')
+        print('Перебудовані Y')
+        text.append('Перебудовані Y')
+        print(y_new_normalized.to_string())
+        text.append(y_new_normalized.to_string())
+        print('-------------------------')
+        text.append('-------------------------')
+        print('Коефіцієнти c')
+        text.append('Коефіцієнти c')
+        print(c_norm.to_string())
+        text.append(c_norm.to_string())
+        print('-------------------------')
+        text.append('-------------------------')
+        text.append('Побудований прогноз')
+        print('Побудований прогноз')
+        text.append(fit_res_norm.to_string())
+        print(fit_res_norm.to_string())
+        text.append('-------------------------')
+        print('-------------------------')
+        text.append('Похибки')
+        print('Похибки')
+        text.append(errors_norm.to_string())
+        print(errors_norm.to_string())
+        text.append('-------------------------')
+        print('-------------------------')
+        text.append('Норми похибок')
+        print('Норми похибок')
+        text.append(nor_errors_norm.to_string())
+        print(nor_errors_norm.to_string())
 
-        text.append('\nError (Y_ - F_))')
-        text.append(tb([self.error]))
+        return ('\n').join(text)
 
-        text.append('Input data: X')
-        text.append(tb(np.array(self.datas[:, :self.dim_integral[2]])))
+    def main(self, print_=False):
+        prepared_data = self._prepare_data()
+        normalized_data = self._norm_data(prepared_data)
+        train_data_normalized, target_normalized = self._create_train_dataset(normalized_data)
+        train_data, target = self._create_train_dataset(prepared_data)
+        A, A_log = self._get_A(train_data, self.p)
+        b, b_log = self._get_B(target)
+        lambdas = self._get_lambdas(A_log, b_log)
+        psi, psi_log = self._get_psi(A_log, lambdas)
+        A1 = self._get_A1(psi_log, b)
+        Fi, Fi_log = self._get_Fi(psi_log, A1)
+        coefs = self._get_coefs(Fi, b)
+        fitnes_result, fitnes_result_log, error = self._get_fitness_function(Fi, b, coefs)
 
-        text.append('\nInput data: Y')
-        text.append(tb(np.array(self.datas[:, self.dim_integral[2]:self.dim_integral[3]])))
+        A_normalized, A_normalized_log = self._get_A(train_data_normalized, self.p)
+        b_normalized, b_normalized_log = self._get_B(target_normalized)
+        lambdas_normalized = self._get_lambdas(A_normalized, b_normalized)
+        psi_normalized, psi_normalized_log = self._get_psi(A_normalized, lambdas_normalized)
+        A1_normalized = self._get_A1(psi_normalized, b_normalized)
+        Fi_normalized, Fi_normalized_log = self._get_Fi(psi_normalized, A1_normalized)
+        coefs_normalized = self._get_coefs(Fi_normalized, b_normalized)
+        fitnes_result_normalized, fitnes_result_normalized_log, error_normalized = self._get_fitness_function(Fi_normalized, b_normalized,
+                                                                                coefs_normalized)
+        if self.solving_method == 'coordDesc':
+            fitnes_result_normalized = [(el - min(el)) / (max(el) - min(el)) for el in fitnes_result_normalized]
+            error_normalized = [(el - min(el)) / (max(el) - min(el)) for el in error_normalized]
 
-        text.append('\nX normalised:')
-        text.append(tb(np.array(self.data[:, :self.dim_integral[2]])))
+        self._save_data(prepared_data, normalized_data, pd.DataFrame(A), pd.DataFrame(A_normalized), lambdas, lambdas_normalized,
+                        psi, psi_normalized, pd.DataFrame(A1),
+                        pd.DataFrame(A1_normalized), pd.DataFrame(b), pd.DataFrame(b_normalized),
+                        pd.DataFrame(coefs), pd.DataFrame(coefs_normalized), pd.DataFrame(fitnes_result).T,
+                        pd.DataFrame(fitnes_result_normalized).T, pd.DataFrame(error).T,
+                        pd.DataFrame(error_normalized).T,
+                        pd.DataFrame(pd.DataFrame(error).T.apply(lambda x: np.linalg.norm(x))).T,
+                        pd.DataFrame(pd.DataFrame(error_normalized).T.apply(lambda x: np.linalg.norm(x))).T)
 
-        text.append('\nY normalised:')
-        text.append(tb(np.array(self.data[:, self.dim_integral[2]:self.dim_integral[3]])))
+        if print_:
+            self.print_data(prepared_data, normalized_data, pd.DataFrame(A), pd.DataFrame(A_normalized), lambdas, lambdas_normalized,
+                            psi, psi_normalized, pd.DataFrame(A1),
+                            pd.DataFrame(A1_normalized), pd.DataFrame(b), pd.DataFrame(b_normalized),
+                            pd.DataFrame(coefs), pd.DataFrame(coefs_normalized), pd.DataFrame(fitnes_result).T,
+                            pd.DataFrame(fitnes_result_normalized).T, pd.DataFrame(error).T,
+                            pd.DataFrame(error_normalized).T,
+                            pd.DataFrame(pd.DataFrame(error).T.apply(lambda x: np.linalg.norm(x))).T,
+                            pd.DataFrame(pd.DataFrame(error_normalized).T.apply(lambda x: np.linalg.norm(x))).T)
 
-        text.append('\nmatrix B:')
-        text.append(tb(np.array(self.B)))
-
-        # text.append('\nmatrix A:')
-        # text.append(tb(np.array(self.A)))
-
-        text.append('\nmatrix Lambda:')
-        text.append(tb(np.array(self.Lamb)))
-
-        for j in range(len(self.Psi)):
-            s = '\nmatrix Psi%i:' % (j + 1)
-            text.append(s)
-            text.append(tb(np.array(self.Psi[j])))
-
-        text.append('\nmatrix a:')
-        text.append(tb(self.a.tolist()))
-
-        for j in range(len(self.Fi)):
-            s = '\nmatrix F%i:' % (j + 1)
-            text.append(s)
-            text.append(tb(np.array(self.Fi[j])))
-
-        text.append('\nmatrix c:')
-        text.append(tb(np.array(self.c)))
-
-        text.append('\nY rebuilt normalized :')
-        text.append(tb(np.array(self.F)))
-
-        text.append('\nY rebuilt :')
-        text.append(tb(self.F_.tolist()))
-        return '\n'.join(text)
-
+        return [prepared_data, normalized_data, pd.DataFrame(A), pd.DataFrame(A_normalized), lambdas, lambdas_normalized,
+                psi, psi_normalized, pd.DataFrame(A1),
+                pd.DataFrame(A1_normalized), pd.DataFrame(b), pd.DataFrame(b_normalized),
+                pd.DataFrame(coefs), pd.DataFrame(coefs_normalized), pd.DataFrame(fitnes_result).T,
+                pd.DataFrame(fitnes_result_normalized).T, pd.DataFrame(error).T,
+                pd.DataFrame(error_normalized).T,
+                pd.DataFrame(pd.DataFrame(error).T.apply(lambda x: np.linalg.norm(x))).T,
+                pd.DataFrame(pd.DataFrame(error_normalized).T.apply(lambda x: np.linalg.norm(x))).T, self.deg, self.p]

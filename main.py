@@ -1,4 +1,3 @@
-# coding: utf8
 import os
 import logging
 import sys
@@ -26,9 +25,9 @@ from PyQt5.QtCore import pyqtSlot, pyqtSignal
 from PyQt5.QtGui import QTextDocument, QFont
 from PyQt5.QtWidgets import QApplication, QDialog, QFileDialog, QMessageBox
 
-from output import PolynomialBuilder, PolynomialBuilderExpTh
-from solve import Solve
-from task_solution import SolveExpTh
+from output_exponential import PolynomialBuilder, PolynomialBuilderExpTh
+from task_solution import Solve
+from task_solution_exponential import ExponentialSolve
 
 app = QApplication(sys.argv)
 app.setApplicationName('lab3_sa')
@@ -60,7 +59,7 @@ class MainWindow(QDialog, Ui_Form):
         elif self.radio_sh_cheb_2.isChecked():
             self.type = 'sh_cheb_2'
         self.custom_func_struct = self.custom_check.isChecked()
-        self.input_path = self.line_input.text()
+        self.input_path = 'data/dst(48,2,2,2,2).txt' #self.line_input.text()
         self.output_path = self.line_output.text()
         self.samples_num = self.sample_spin.value()
         self.lambda_multiblock = self.lambda_check.isChecked()
@@ -149,6 +148,18 @@ class MainWindow(QDialog, Ui_Form):
         return
 
     @pyqtSlot(bool)
+    def method_modified(self, isdown):
+        if (isdown):
+            sender = self.sender().objectName()
+            if sender == 'radioConjucateGrad':
+                self.method = 'conjucate'
+            elif sender == 'radioLSTM':
+                self.method = 'LSTM'
+            elif sender == 'radioCoordDesc':
+                self.method = 'coordDesc'
+        return
+
+    @pyqtSlot(bool)
     def structure_changed(self, isdown):
         self.custom_func_struct = isdown
 
@@ -170,15 +181,15 @@ class MainWindow(QDialog, Ui_Form):
         self.exec_button.setEnabled(False)
         try:
             if self.custom_func_struct:
-                solver = SolveExpTh(self._get_params())
-                solver.prepare()
-                self.solution = PolynomialBuilderExpTh(solver)
-                self.results_field.setText(solver.show()+'\n\n'+self.solution.get_results())
+                solver = ExponentialSolve(self._get_params())
+                solved_data = solver.main()
+                self.solution = PolynomialBuilder(solver, solved_data)
+                self.results_field.setText(solver.print_data(*solved_data)+'\n\n'+self.solution.get_results())
             else:
                 solver = Solve(self._get_params())
-                solver.prepare()
-                self.solution = PolynomialBuilder(solver)
-                self.results_field.setText(solver.show()+'\n\n'+self.solution.get_results())
+                solved_data = solver.main()
+                self.solution = PolynomialBuilder(solver, solved_data)
+                self.results_field.setText(solver.print_data(*solved_data) + '\n\n' + self.solution.get_results())
         except Exception as e:
             QMessageBox.warning(self,'Error!','Error happened during execution: ' + str(e))
         self.exec_button.setEnabled(True)
@@ -209,7 +220,7 @@ class MainWindow(QDialog, Ui_Form):
     def _get_params(self):
         return dict(poly_type=self.type, degrees=self.degrees, dimensions=self.dimensions,
                     samples=self.samples_num, input_file=self.input_path, output_file=self.output_path,
-                    weights=self.weight_method, lambda_multiblock=self.lambda_multiblock)
+                    weights=self.weight_method, lambda_multiblock=self.lambda_multiblock, method='LSTM')
 
 
 # -----------------------------------------------------#
