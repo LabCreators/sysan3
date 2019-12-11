@@ -126,7 +126,9 @@ class Solve(object):
                 use_cols = [el for el in A.columns if el.find('X{}'.format(j + 1)) != -1]
                 train_data = A.loc[:, use_cols]
                 a = train_data.T * Y.loc[:, Y.columns[i]]
-                lambdas.loc[i, lambdas.columns[j]] = [self._minimize_equation(a.T.values, Y.loc[:, Y.columns[i]])]
+                lambdas.loc[i, lambdas.columns[j]] = [self._minimize_equation(a.fillna(a.mean().mean()).T.apply(lambda x:
+                                                        [el.coef[0] if not isinstance(el, float) else el for el in x]),
+                                                                              Y.fillna(Y.mean()).loc[:, Y.columns[i]])]
             else:
                 a = A.T * Y.loc[:, Y.columns[i]].fillna(A.T.mean().mean())
                 lambdas.loc[i, lambdas.columns[j]] = [self._minimize_equation(a.fillna(a.mean().mean()).T.apply(lambda x:
@@ -172,17 +174,26 @@ class Solve(object):
     def _get_Fi(self, psi, a1):
         if self.solving_method == 'LSTM':
             if self.splitted_lambdas:
-                fi = np.array([[psi[i][j] * a1[i][j] for j in range(self.deg[-1])] for i in range(self.deg[-1])])
+                try:
+                    fi = np.array([[psi[i][j] * a1[i][j] for j in range(self.deg[-1])] for i in range(self.deg[-1])])
+                except:
+                    fi = [[psi[i][j] * a1[i][j] for j in range(self.deg[-1])] for i in range(self.deg[-1])]
             else:
                 fi = [[psi[i][j] * a1[i][j] for j in range(self.deg[-1])] for i in range(self.deg[-1])]
         elif self.solving_method == 'conjucate':
             if self.splitted_lambdas:
-                fi = np.array([[(psi[i][j].T * a1[i][j]).T for j in range(self.deg[-1])] for i in range(self.deg[-1])])
+                try:
+                    fi = np.array([[(psi[i][j].T * a1[i][j]).T for j in range(self.deg[-1])] for i in range(self.deg[-1])])
+                except:
+                    fi = [[(psi[i][j].T * a1[i][j]).T for j in range(self.deg[-1])] for i in range(self.deg[-1])]
             else:
                 fi = [[(psi[i][j].T * a1[i][j]).T for j in range(self.deg[-1])] for i in range(self.deg[-1])]
         else:
             if self.splitted_lambdas:
-                fi = np.array([[psi[i][j] * a1[i][j] for j in range(self.deg[-1])] for i in range(self.deg[-1])])
+                try:
+                    fi = np.array([[psi[i][j] * a1[i][j] for j in range(self.deg[-1])] for i in range(self.deg[-1])])
+                except:
+                    fi = [[(psi[i][j].T * a1[i][j]).T for j in range(self.deg[-1])] for i in range(self.deg[-1])]
             else:
                 fi = [[psi[i][j] * a1[i][j] for j in range(self.deg[-1])] for i in range(self.deg[-1])]
         fi = [reduce(lambda x, y: pd.concat([x, y], axis=1), fi[i]) for i in range(self.deg[-1])]
