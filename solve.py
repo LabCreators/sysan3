@@ -92,6 +92,7 @@ class Solve(object):
         self.norm_error = 0.0
         self.eps = 1E-8
         self.error = 0.0
+        self.custom_func_struct = d['custom']
 
     def define_data(self):
         f = open(self.filename_input, 'r')

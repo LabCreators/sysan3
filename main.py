@@ -209,7 +209,7 @@ class MainWindow(QDialog, Ui_Form):
     def _get_params(self):
         return dict(poly_type=self.type, degrees=self.degrees, dimensions=self.dimensions,
                     samples=self.samples_num, input_file=self.input_path, output_file=self.output_path,
-                    weights=self.weight_method, lambda_multiblock=self.lambda_multiblock)
+                    weights=self.weight_method, lambda_multiblock=self.lambda_multiblock, custom=self.custom_func_struct)
 
 
 # -----------------------------------------------------#
