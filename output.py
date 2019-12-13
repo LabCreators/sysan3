@@ -27,6 +27,18 @@ class PolynomialBuilder(object):
         elif solution.poly_type == 'sh_cheb_2':
             self.symbol = 'U'
             self.basis = b_gen.basis_sh_chebyshev_2_shrinked(max_degree)
+        elif solution.poly_type == 'sin':
+            self.symbol = 'S'
+            self.basis = b_gen.basis_hermite(max_degree)
+        elif solution.poly_type == 'cos':
+            self.symbol = 'C'
+            self.basis = b_gen.basis_sh_legendre(max_degree)
+        elif solution.poly_type == 'arctg':
+            self.symbol = 'A'
+            self.basis = b_gen.basis_sh_chebyshev_2(max_degree)
+        elif solution.poly_type == 'sigmoid':
+            self.symbol = 'SIG'
+            self.basis = b_gen.basis_sh_chebyshev(max_degree)
         assert self.symbol
         self.a = solution.a.T.tolist()
         self.c = solution.c.T.tolist()
@@ -181,13 +193,17 @@ class PolynomialBuilder(object):
             axes[i][j].plot(np.arange(1, self._solution.n + 1), y_list[i//2][:, j])
             axes[i][j].plot(np.arange(1, self._solution.n + 1), predict_list[i//2][:, j])
             axes[i][j].legend(['True', 'Predict'])
-            axes[i][j].set_title('Y{}'.format(j + 1))
+            if i == 0:
+                axes[i][j].set_title('Y{} нормалізовані'.format(j + 1))
+            else:
+                axes[i][j].set_title('Y{} ненормалізовані'.format(j + 1))
 
             axes[i+1][j].set_xticks(np.arange(0, self._solution.n + 1, 5))
             axes[i+1][j].plot(np.arange(1, self._solution.n + 1), abs(y_list[i//2][:, j] - predict_list[i//2][:, j]))
             axes[i+1][j].set_title('Похибки: {}'.format(j + 1))
-        plt.savefig('graphics/graph_{}_{}_{}_{}_{}'.format(self._solution.deg, self._solution.poly_type, self._solution.dim,
-                                                        self._solution.splitted_lambdas, self._solution.custom_func_struct))
+        plt.savefig('graphics/graph_{}_{}_{}_{}_{}_{}_{}'.format(self._solution.deg, self._solution.poly_type, self._solution.dim,
+                                                        self._solution.splitted_lambdas, self._solution.custom_func_struct,
+                                                              self._solution.solving_method, self._solution.weights))
         manager = plt.get_current_fig_manager()
         manager.set_window_title('Graph')
         if os_name == 'posix':

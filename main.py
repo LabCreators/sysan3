@@ -32,7 +32,8 @@ from task_solution import SolveExpTh
 
 app = QApplication(sys.argv)
 app.setApplicationName('lab3_sa')
-from main_window import Ui_Form
+#from main_window import Ui_Form
+from new_main import Ui_Form
 from bruteforce import BruteForceWindow
 
 
@@ -59,6 +60,23 @@ class MainWindow(QDialog, Ui_Form):
             self.type = 'laguerre'
         elif self.radio_sh_cheb_2.isChecked():
             self.type = 'sh_cheb_2'
+        elif self.sin.isChecked():
+            self.type = 'sin'
+        elif self.cos.isChecked():
+            self.type = 'cos'
+        elif self.arctg.isChecked():
+            self.type = 'arctg'
+        elif self.sigmoid.isChecked():
+            self.type = 'sigmoid'
+        self.method = 'grad'
+        if self.radioConjucateGrad.isChecked():
+            self.method = 'grad'
+        elif self.radioConjucateGrad.isChecked():
+            self.method = 'conjucateGrad'
+        elif self.radioLSTM.isChecked():
+            self.method = 'lstm'
+        elif self.radioCoord.isChecked():
+            self.method = 'coord'
         self.custom_func_struct = self.custom_check.isChecked()
         self.input_path = self.line_input.text()
         self.output_path = self.line_output.text()
@@ -146,6 +164,28 @@ class MainWindow(QDialog, Ui_Form):
                 self.type = 'laguerre'
             elif sender == 'radio_sh_cheb_2':
                 self.type = 'sh_cheb_2'
+            elif sender == 'sin':
+                self.type = 'sin'
+            elif sender == 'cos':
+                self.type = 'cos'
+            elif sender == 'arctg':
+                self.type = 'arctg'
+            elif sender == 'sigmoid':
+                self.type = 'sigmoid'
+        return
+
+    @pyqtSlot(bool)
+    def method_modified(self, isdown):
+        if (isdown):
+            sender = self.sender().objectName()
+            if sender == 'radioConjucateGrad':
+                self.method = 'conjucateGrad'
+            elif sender == 'radioLSTM':
+                self.method = 'lstm'
+            elif sender == 'radioGrad':
+                self.method = 'grad'
+            elif sender == 'radioCoord':
+                self.method = 'coord'
         return
 
     @pyqtSlot(bool)
@@ -207,7 +247,7 @@ class MainWindow(QDialog, Ui_Form):
         return
 
     def _get_params(self):
-        return dict(poly_type=self.type, degrees=self.degrees, dimensions=self.dimensions,
+        return dict(poly_type=self.type, solving_method=self.method, degrees=self.degrees, dimensions=self.dimensions,
                     samples=self.samples_num, input_file=self.input_path, output_file=self.output_path,
                     weights=self.weight_method, lambda_multiblock=self.lambda_multiblock, custom=self.custom_func_struct)
 

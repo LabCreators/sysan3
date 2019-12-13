@@ -6,6 +6,7 @@ from arima import forecast
 #from openpyxl import Workbook
 from tabulate import tabulate as tb
 from syst_solution import *
+from sklearn.linear_model import Ridge
 
 
 def eval_chebyt(n, x):
@@ -93,6 +94,7 @@ class Solve(object):
         self.eps = 1E-8
         self.error = 0.0
         self.custom_func_struct = d['custom']
+        self.solving_method = d['solving_method']
 
     def define_data(self):
         f = open(self.filename_input, 'r')
@@ -102,23 +104,25 @@ class Solve(object):
         # list of sum degrees [ 3,1,2] -> [3,4,6]
         self.dim_integral = [sum(self.dim[:i + 1]) for i in range(len(self.dim))]
 
-    def _minimize_equation(self, A, b, type='g'):
+    def _minimize_equation(self, A, b):
         """
         Finds such vector x that |Ax-b|->min.
         :param A: Matrix A
         :param b: Vector b
         :return: Vector x
         """
-        if type == 'lsq':
+        if self.solving_method == 'lstm':
             return np.linalg.lstsq(A, b)[0]
-        elif type == 'cjg':
+        elif self.solving_method == 'conjucateGrad':
             return conjugate_gradient_method(A.T * A, A.T * b, self.eps)
-        elif type == 'cjg2':
+        elif self.solving_method == 'cjg2':
             return conjugate_gradient_method_v2(A.T * A, A.T * b, self.eps)
-        elif type == 'cjg3':
+        elif self.solving_method == 'cjg3':
             return conjugate_gradient_method_v3(A.T * A, A.T * b, self.eps)
-        elif type == 'g':
+        elif self.solving_method == 'grad':
             return gradient_descent(A.T * A, A.T * b, self.eps)
+        elif self.solving_method == 'coord':
+            return Ridge(alpha=self.eps).fit(A, b).coef_
 
     def norm_data(self):
         """
@@ -172,10 +176,20 @@ class Solve(object):
             """
             return deepcopy(self.Y)
 
+        def B_width():
+            """
+            Vector B formes from width interval
+            :return:
+            """
+            b = np.tile((self.Y.max(axis=1) - self.Y.min(axis=1)), (1, self.dim[3]))
+            return b
+
         if self.weights == 'average':
             self.B = B_average()
         elif self.weights == 'scaled':
             self.B = B_scaled()
+        elif self.weights == 'width':
+            self.B = B_width()
         else:
             exit('B not defined')
         self.B_log = np.log(self.B + 1 + self.OFFSET)
@@ -197,6 +211,8 @@ class Solve(object):
             self.poly_f = lambda deg, x: (np.cos(x) + np.pi) / (2 * np.pi)
         elif self.poly_type == 'arctg':
             self.poly_f = lambda deg, x: (np.arctan(x) + np.pi / 2) / np.pi
+        elif self.poly_type == 'sigmoid':
+            self.poly_f = lambda deg, x: 1 / (1 + np.exp(-x))
 
     def built_A(self):
         """
@@ -261,7 +277,10 @@ class Solve(object):
                 lamb3 = self._minimize_equation(self.A_log[:, boundary_2:], self.B_log[:, i])
                 lamb = np.append(lamb, np.concatenate((lamb1, lamb2, lamb3)), axis=1)
             else:
-                lamb = np.append(lamb, self._minimize_equation(self.A_log, self.B_log[:, i]), axis=1)
+                try:
+                    lamb = np.append(lamb, self._minimize_equation(self.A_log, self.B_log[:, i]), axis=1)
+                except:
+                    lamb = np.append(lamb, self._minimize_equation(self.A_log, self.B_log[:, i]).T, axis=1)
         self.Lamb = np.matrix(lamb)  # Lamb in full events
 
     def psi(self):
@@ -301,7 +320,10 @@ class Solve(object):
                                          np.log(self.Y[:, i] + 1 + self.OFFSET))
             # temp = self._minimize_equation(self.Psi[i], self.Y[:, i])
             # self.a = np.append(self.a, temp, axis=1)
-            self.a = np.append(self.a, np.vstack((a1, a2, a3)), axis=1)
+            try:
+                self.a = np.append(self.a, np.vstack((a1, a2, a3)), axis=1)
+            except:
+                self.a = np.append(self.a, np.hstack((a1, a2, a3)).T, axis=1)
 
     def built_F1i(self, psi, a):
         """
@@ -316,7 +338,11 @@ class Solve(object):
         k = 0  # point of beginning column to multiply
         for j in range(m):  # 0 - 2
             for i in range(self.n):  # 0 - 49
-                F1i[i, j] = psi[i, k:self.dim_integral[j]] * a[k:self.dim_integral[j], 0]
+                try:
+                    F1i[i, j] = psi[i, k:self.dim_integral[j]] * a[k:self.dim_integral[j], 0]
+                except:
+                    tmp = np.dot(psi[i, k:self.dim_integral[j]], a[k:self.dim_integral[j]])
+                    F1i[i, j] = tmp[0][0]
             k = self.dim_integral[j]
         return np.matrix(F1i)
 
@@ -330,14 +356,22 @@ class Solve(object):
     def built_c(self):
         self.c = np.ndarray(shape=(len(self.X), 0), dtype=float)
         for i in range(self.dim[3]):
-            self.c = np.append(self.c, self._minimize_equation(self.Fi_log[i], np.log(self.Y[:, i] + 1 + self.OFFSET))
-                               , axis=1)
+            try:
+                self.c = np.append(self.c, self._minimize_equation(self.Fi_log[i], np.log(self.Y[:, i] + 1 + self.OFFSET)), axis=1)
+            except:
+                self.c = np.append(self.c,
+                                   self._minimize_equation(self.Fi_log[i], np.log(self.Y[:, i] + 1 + self.OFFSET)).T,
+                                   axis=1)
 
     def built_F(self):
         F = np.ndarray(self.Y.shape, dtype=float)
         for j in range(F.shape[1]):  # 2
             for i in range(F.shape[0]):  # 50
-                F[i, j] = self.Fi_log[j][i, :] * self.c[:, j]
+                try:
+                    F[i, j] = self.Fi_log[j][i, :] * self.c[:, j]
+                except:
+                    tmp = np.dot(self.Fi_log[j][i, :], self.c[:, j])
+                    F[i, j] = tmp[0][0]
         self.F_log = np.matrix(F)
         self.F = np.exp(self.F_log) - 1
         self.norm_error = []
