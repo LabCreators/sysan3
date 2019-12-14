@@ -95,6 +95,7 @@ class Solve(object):
         self.error = 0.0
         self.custom_func_struct = d['custom']
         self.solving_method = d['solving_method']
+        self.custom_method = d['custom_method']
 
     def define_data(self):
         f = open(self.filename_input, 'r')
@@ -205,14 +206,6 @@ class Solve(object):
             self.poly_f = eval_laguerre
         elif self.poly_type == 'sh_cheb_2':
             self.poly_f = lambda deg, x: eval_sh_chebyu(deg, x) / (deg + 1)
-        elif self.poly_type == 'sin':
-            self.poly_f = lambda deg, x: ((np.sin(x) + np.pi) / (2 * np.pi)) ^ deg
-        elif self.poly_type == 'cos':
-            self.poly_f = lambda deg, x: (np.cos(x) + np.pi) / (2 * np.pi)
-        elif self.poly_type == 'arctg':
-            self.poly_f = lambda deg, x: (np.arctan(x) + np.pi / 2) / np.pi
-        elif self.poly_type == 'sigmoid':
-            self.poly_f = lambda deg, x: 1 / (1 + np.exp(-x))
 
     def built_A(self):
         """

@@ -6,9 +6,17 @@ from math import pi
 from syst_solution import *
 from solve import Solve
 
+def sigmoid(x):
+    return 1 / (1 + np.exp(-x))
 
-class SolveExpTh(Solve):
+class SolveCustom(Solve):
 
+    custom_functions_mapping = {'синус': np.sin,
+                                'косинус': np.cos,
+                                'арктангенс': np.arctan,
+                                'гіперболічний тангенс': np.tanh,
+                                'сигмоїда': sigmoid
+                                }
     def built_B(self):
         def B_average():
             """
@@ -92,7 +100,8 @@ class SolveExpTh(Solve):
         for i in range(len(self.X)):
             vec = vector(self.X[i], self.deg[i])
             A = np.append(A, vec, 1)
-        self.A_log = np.matrix(np.tanh(A))
+        func_custom = self.custom_functions_mapping.get(self.custom_method)
+        self.A_log = np.matrix(func_custom(A))
         self.A = np.exp(self.A_log)
 
     def lamb(self):
@@ -131,9 +140,10 @@ class SolveExpTh(Solve):
 
         self.Psi = list()
         self.Psi_tanh = list()
+        func_custom = self.custom_functions_mapping.get(self.custom_method)
         for i in range(self.dim[3]):
             self.Psi.append(np.exp(built_psi(self.Lamb[:, i])) - 1)  # Psi = exp(sum(lambda*tanh(phi))) - 1
-            self.Psi_tanh.append(np.tanh(self.Psi[-1]))
+            self.Psi_tanh.append(func_custom(self.Psi[-1]))
 
 
     def built_a(self):
@@ -169,9 +179,10 @@ class SolveExpTh(Solve):
     def built_Fi(self):
         self.Fi_tanh = list()
         self.Fi = list()
+        func_custom = self.custom_functions_mapping.get(self.custom_method)
         for i in range(self.dim[3]):
             self.Fi.append(np.exp(self.built_F1i(self.Psi_tanh[i], self.a[:, i])) - 1)  # Fi = exp(sum(a*tanh(Psi))) - 1
-            self.Fi_tanh.append(np.tanh(self.Fi[i]))
+            self.Fi_tanh.append(func_custom(self.Fi[i]))
 
     def built_c(self):
         self.c = np.ndarray(shape=(len(self.X), 0), dtype=float)
@@ -190,7 +201,8 @@ class SolveExpTh(Solve):
             self.norm_error.append(np.linalg.norm(self.Y[:, i] - self.F[:, i], np.inf))
 
     def aggregate(self, values, coeffs):
-        return np.exp(np.dot(np.tanh(values), coeffs)) - 1
+        func_custom = self.custom_functions_mapping.get(self.custom_method)
+        return np.exp(np.dot(func_custom(values), coeffs)) - 1
 
     def show(self):
         text = []

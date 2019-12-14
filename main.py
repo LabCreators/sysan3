@@ -26,14 +26,16 @@ from PyQt5.QtCore import pyqtSlot, pyqtSignal
 from PyQt5.QtGui import QTextDocument, QFont
 from PyQt5.QtWidgets import QApplication, QDialog, QFileDialog, QMessageBox
 
-from output import PolynomialBuilder, PolynomialBuilderExpTh
+from output import PolynomialBuilder, PolynomialBuilderExpTh, PolynomialBuilderSigmoid
 from solve import Solve
 from task_solution import SolveExpTh
+from task_solution_custom import SolveCustom
 
 app = QApplication(sys.argv)
 app.setApplicationName('lab3_sa')
 #from main_window import Ui_Form
 from new_main import Ui_Form
+#from MAIN_WINDOW import Ui_Form
 from bruteforce import BruteForceWindow
 
 
@@ -60,14 +62,6 @@ class MainWindow(QDialog, Ui_Form):
             self.type = 'laguerre'
         elif self.radio_sh_cheb_2.isChecked():
             self.type = 'sh_cheb_2'
-        elif self.sin.isChecked():
-            self.type = 'sin'
-        elif self.cos.isChecked():
-            self.type = 'cos'
-        elif self.arctg.isChecked():
-            self.type = 'arctg'
-        elif self.sigmoid.isChecked():
-            self.type = 'sigmoid'
         self.method = 'grad'
         if self.radioConjucateGrad.isChecked():
             self.method = 'grad'
@@ -83,6 +77,7 @@ class MainWindow(QDialog, Ui_Form):
         self.samples_num = self.sample_spin.value()
         self.lambda_multiblock = self.lambda_check.isChecked()
         self.weight_method = self.weights_box.currentText().lower()
+        self.custom_method = self.custom_box.currentText().lower()
         self.solution = None
         doc = self.results_field.document()
         assert isinstance(doc, QTextDocument)
@@ -164,14 +159,6 @@ class MainWindow(QDialog, Ui_Form):
                 self.type = 'laguerre'
             elif sender == 'radio_sh_cheb_2':
                 self.type = 'sh_cheb_2'
-            elif sender == 'sin':
-                self.type = 'sin'
-            elif sender == 'cos':
-                self.type = 'cos'
-            elif sender == 'arctg':
-                self.type = 'arctg'
-            elif sender == 'sigmoid':
-                self.type = 'sigmoid'
         return
 
     @pyqtSlot(bool)
@@ -210,9 +197,9 @@ class MainWindow(QDialog, Ui_Form):
         self.exec_button.setEnabled(False)
         try:
             if self.custom_func_struct:
-                solver = SolveExpTh(self._get_params())
+                solver = SolveCustom(self._get_params()) #SolveExpTh(self._get_params())
                 solver.prepare()
-                self.solution = PolynomialBuilderExpTh(solver)
+                self.solution = PolynomialBuilderSigmoid(solver) #PolynomialBuilderExpTh(solver)
                 self.results_field.setText(solver.show()+'\n\n'+self.solution.get_results())
             else:
                 solver = Solve(self._get_params())
@@ -246,10 +233,16 @@ class MainWindow(QDialog, Ui_Form):
         self.weight_method = value.lower()
         return
 
+    @pyqtSlot('QString')
+    def custom_modified(self, value):
+        self.custom_method = value.lower()
+        return
+
     def _get_params(self):
         return dict(poly_type=self.type, solving_method=self.method, degrees=self.degrees, dimensions=self.dimensions,
                     samples=self.samples_num, input_file=self.input_path, output_file=self.output_path,
-                    weights=self.weight_method, lambda_multiblock=self.lambda_multiblock, custom=self.custom_func_struct)
+                    weights=self.weight_method, lambda_multiblock=self.lambda_multiblock, custom=self.custom_func_struct,
+                    custom_method=self.custom_method)
 
 
 # -----------------------------------------------------#
