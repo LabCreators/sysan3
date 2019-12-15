@@ -176,19 +176,35 @@ class PolynomialBuilder(object):
         fig, axes = plt.subplots(4, self._solution.Y.shape[1], figsize=(10, 12))
         y_list = [self._solution.Y, self._solution.Y_]
         predict_list = [self._solution.F, self._solution.F_]
-        for i, j in itertools.product([0, 2], range(self._solution.Y.shape[1])):
-            axes[i][j].set_xticks(np.arange(0, self._solution.n + 1, 5))
-            axes[i][j].plot(np.arange(1, self._solution.n + 1), y_list[i//2][:, j])
-            axes[i][j].plot(np.arange(1, self._solution.n + 1), predict_list[i//2][:, j])
-            axes[i][j].legend(['True', 'Predict'])
-            if i == 0:
-                axes[i][j].set_title('Y{} нормалізовані'.format(j + 1))
-            else:
-                axes[i][j].set_title('Y{} ненормалізовані'.format(j + 1))
+        if self._solution.Y.shape[1] > 1:
+            for i, j in itertools.product([0, 2], range(self._solution.Y.shape[1])):
+                axes[i][j].set_xticks(np.arange(0, self._solution.n + 1, 5))
+                axes[i][j].plot(np.arange(1, self._solution.n + 1), y_list[i//2][:, j])
+                axes[i][j].plot(np.arange(1, self._solution.n + 1), predict_list[i//2][:, j])
+                axes[i][j].legend(['True', 'Predict'])
+                if i == 0:
+                    axes[i][j].set_title('Y{} нормалізовані'.format(j + 1))
+                else:
+                    axes[i][j].set_title('Y{} ненормалізовані'.format(j + 1))
 
-            axes[i+1][j].set_xticks(np.arange(0, self._solution.n + 1, 5))
-            axes[i+1][j].plot(np.arange(1, self._solution.n + 1), abs(y_list[i//2][:, j] - predict_list[i//2][:, j]))
-            axes[i+1][j].set_title('Похибки: {}'.format(j + 1))
+                axes[i+1][j].set_xticks(np.arange(0, self._solution.n + 1, 5))
+                axes[i+1][j].plot(np.arange(1, self._solution.n + 1), abs(y_list[i//2][:, j] - predict_list[i//2][:, j]))
+                axes[i+1][j].set_title('Похибки: {}'.format(j + 1))
+        else:
+            for i in [0, 2]:
+                axes[i].set_xticks(np.arange(0, self._solution.n + 1, 5))
+                axes[i].plot(np.arange(1, self._solution.n + 1), y_list[i // 2])
+                axes[i].plot(np.arange(1, self._solution.n + 1), predict_list[i // 2])
+                axes[i].legend(['True', 'Predict'])
+                if i == 0:
+                    axes[i].set_title('Y нормалізовані')
+                else:
+                    axes[i].set_title('Y ненормалізовані')
+
+                axes[i + 1].set_xticks(np.arange(0, self._solution.n + 1, 5))
+                axes[i + 1].plot(np.arange(1, self._solution.n + 1),
+                                    abs(y_list[i // 2] - predict_list[i // 2]))
+                axes[i + 1].set_title('Похибки')
         plt.savefig('graphics/graph_{}_{}_{}_{}_{}_{}_{}'.format(self._solution.deg, self._solution.poly_type, self._solution.dim,
                                                         self._solution.splitted_lambdas, self._solution.custom_func_struct,
                                                               self._solution.solving_method, self._solution.weights))
