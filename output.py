@@ -12,6 +12,7 @@ from os import name as os_name
 from solve import Solve
 import basis_gen as b_gen
 import itertools
+import time
 
 
 class PolynomialBuilder(object):
@@ -179,8 +180,16 @@ class PolynomialBuilder(object):
         if self._solution.Y.shape[1] > 1:
             for i, j in itertools.product([0, 2], range(self._solution.Y.shape[1])):
                 axes[i][j].set_xticks(np.arange(0, self._solution.n + 1, 5))
-                axes[i][j].plot(np.arange(1, self._solution.n + 1), y_list[i//2][:, j])
-                axes[i][j].plot(np.arange(1, self._solution.n + 1), predict_list[i//2][:, j])
+                X = []
+                Y = []
+                Y_true = []
+                for k, x in enumerate(np.arange(1, self._solution.n + 1)):
+                    X.append(x)
+                    Y.extend(y_list[i//2][:, j][k].tolist()[0])
+                    Y_true.extend(predict_list[i//2][:, j][k].tolist()[0])
+                    axes[i][j].plot(X, Y)
+                    axes[i][j].plot(X, Y_true)
+                    plt.pause(0.05)
                 axes[i][j].legend(['True', 'Predict'])
                 if i == 0:
                     axes[i][j].set_title('Y{} нормалізовані'.format(j + 1))
@@ -188,7 +197,10 @@ class PolynomialBuilder(object):
                     axes[i][j].set_title('Y{} ненормалізовані'.format(j + 1))
 
                 axes[i+1][j].set_xticks(np.arange(0, self._solution.n + 1, 5))
-                axes[i+1][j].plot(np.arange(1, self._solution.n + 1), abs(y_list[i//2][:, j] - predict_list[i//2][:, j]))
+                for k in range(len(X)):
+                    axes[i+1][j].plot(X[i], abs(Y[k] - Y_true[k]))
+                    plt.pause(0.05)
+                #axes[i+1][j].plot(np.arange(1, self._solution.n + 1), abs(y_list[i//2][:, j] - predict_list[i//2][:, j]))
                 axes[i+1][j].set_title('Похибки: {}'.format(j + 1))
         else:
             for i in [0, 2]:
