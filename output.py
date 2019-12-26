@@ -1,19 +1,14 @@
-#import tkinter
-#from tkinter import filedialog
-#import Tkinter
-#import tkFileDialog as filedialog
-
-#import matplotlib.backends.backend_tkagg
 import numpy as np
 import matplotlib.pyplot as plt
+import matplotlib.animation as animation
+from matplotlib import style
 from numpy.polynomial import Polynomial as pnm
 from os import name as os_name
 
 from solve import Solve
 import basis_gen as b_gen
 import itertools
-import time
-
+from time import sleep
 
 class PolynomialBuilder(object):
     def __init__(self, solution):
@@ -35,6 +30,13 @@ class PolynomialBuilder(object):
         self.maxX = [X.max(axis=0).getA1() for X in solution.X_]
         self.minY = solution.Y_.min(axis=0).getA1()
         self.maxY = solution.Y_.max(axis=0).getA1()
+        self.x_bort_net = [1,2,3,4,5,6,7,8,9,10]
+        self.y_bort_net = [23,28,23,28,23,28,23,28,23,28]
+        self.x_fuel = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+        self.y_fuel = [50, 60, 50, 60, 50, 60, 50, 60, 50, 60]
+        self.x_battery = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+        self.y_battery = [23, 28, 23, 28, 23, 28, 23, 28, 23, 28]
+        self.current_time = 0
 
     def _form_lamb_lists(self):
         """
@@ -172,6 +174,42 @@ class PolynomialBuilder(object):
         self._print_F_i_transformed_recovered(i))
                                           for i in range(self._solution.Y.shape[1])]
         return '\n'.join(psi_strings + phi_strings + f_strings + f_strings_transformed + f_strings_transformed_denormed)
+
+    def plot_in_realtime(self):
+        style.use('fivethirtyeight')
+
+        fig1= plt.figure()
+        ax1 = fig1.add_subplot(1, 1, 1)
+        ax1_1 = fig1.add_subplot(1,1,1)
+        fig2 = plt.figure()
+        ax2 = fig2.add_subplot(1,1,1)
+        fig3 = plt.figure()
+        ax3 = fig3.add_subplot(1, 1, 1)
+        def animate_bort_net(i):
+            ax1.clear()
+            ax1.plot(self.x_bort_net[:i], self.y_bort_net[:i])
+            ax1_1.plot(self.x_fuel[:i], self.y_fuel[:i])
+            if i >= len(self.x_bort_net):
+                manager = plt.get_current_fig_manager()
+                manager.destroy()
+        def animate_fuel(i):
+            ax2.clear()
+            ax2.plot(self.x_fuel[:i], self.y_fuel[:i])
+            if i >= len(self.x_fuel):
+                manager = plt.get_current_fig_manager()
+                manager.destroy()
+        def animate_battery(i):
+            ax3.clear()
+            ax3.plot(self.x_battery[:i], self.y_battery[:i])
+            if i >= len(self.x_battery):
+                manager = plt.get_current_fig_manager()
+                manager.destroy()
+        ani_bort_net = animation.FuncAnimation(fig1, animate_bort_net, interval=1000)
+        ani_fuel = animation.FuncAnimation(fig2, animate_fuel, interval=1000)
+        ani_battery = animation.FuncAnimation(fig3, animate_battery, interval=1000)
+        plt.show()
+        return "Автомобіль йобнувся"
+
 
     def plot_graphs(self):
         fig, axes = plt.subplots(4, self._solution.Y.shape[1], figsize=(10, 12))
