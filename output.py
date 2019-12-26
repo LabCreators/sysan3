@@ -4,11 +4,11 @@ import matplotlib.animation as animation
 from matplotlib import style
 from numpy.polynomial import Polynomial as pnm
 from os import name as os_name
+import parser
 
 from solve import Solve
 import basis_gen as b_gen
 import itertools
-from time import sleep
 
 class PolynomialBuilder(object):
     def __init__(self, solution):
@@ -32,11 +32,39 @@ class PolynomialBuilder(object):
         self.maxY = solution.Y_.max(axis=0).getA1()
         self.x_bort_net = [1,2,3,4,5,6,7,8,9,10]
         self.y_bort_net = [23,28,23,28,23,28,23,28,23,28]
+        self.bort_net = self.parse(1)
         self.x_fuel = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
         self.y_fuel = [50, 60, 50, 60, 50, 60, 50, 60, 50, 60]
         self.x_battery = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
         self.y_battery = [23, 28, 23, 28, 23, 28, 23, 28, 23, 28]
         self.current_time = 0
+
+    def parse(self, iteration):
+        f = open("bort_net", 'r')
+        # 627 iterations count, 5 number of charts, 60 max number of
+        # points, 2 point`s dimension
+        arrs = np.zeros((5, 2, 60), dtype='float')
+        content = f.read()
+        arrays = content.split("\t\n")
+        for index_array, arr in enumerate(arrays):
+            raw_points = arr.split(" )	( ")
+            for index_point, point in enumerate(raw_points):
+                xy = point.split(", ")
+                if index_array == 4:
+                    if index_point == 0:
+                        arrs[index_array][0][index_point + 50] = 490
+                        arrs[index_array][1][index_point + 50] = float(xy[1].replace(",", "."))
+                    else:
+                        arrs[index_array][0][index_point + 50] = float(xy[0])
+                        arrs[index_array][1][index_point + 50] = float(xy[1].replace(",", ".").replace(" )", ""))
+                else:
+                    if index_point == 0:
+                        arrs[index_array][0][index_point] = 0
+                        arrs[index_array][1][index_point] = float(xy[1].replace(",", "."))
+                    else:
+                        arrs[index_array][0][index_point] = float(xy[0])
+                        arrs[index_array][1][index_point] = float(xy[1].replace(",", ".").replace(" )", ""))
+        return arrs
 
     def _form_lamb_lists(self):
         """
@@ -178,32 +206,40 @@ class PolynomialBuilder(object):
     def plot_in_realtime(self):
         style.use('fivethirtyeight')
 
-        fig1= plt.figure()
-        ax1 = fig1.add_subplot(1, 1, 1)
-        ax1_1 = fig1.add_subplot(1,1,1)
+        #bort_net
+        fig1 = plt.figure()
+        ax1_0 = fig1.add_subplot(1, 1, 1)
+
         fig2 = plt.figure()
         ax2 = fig2.add_subplot(1,1,1)
         fig3 = plt.figure()
         ax3 = fig3.add_subplot(1, 1, 1)
         def animate_bort_net(i):
-            ax1.clear()
-            ax1.plot(self.x_bort_net[:i], self.y_bort_net[:i])
-            ax1_1.plot(self.x_fuel[:i], self.y_fuel[:i])
-            if i >= len(self.x_bort_net):
-                manager = plt.get_current_fig_manager()
-                manager.destroy()
+            ax1_0.clear()
+            ax1_0.plot(self.bort_net[0][0][:i], self.bort_net[0][1][:i])
+            ax1_0.plot(self.bort_net[1][0][:i], self.bort_net[1][1][:i])
+            ax1_0.plot(self.bort_net[2][0][:i], self.bort_net[2][1][:i])
+            ax1_0.plot(self.bort_net[3][0][:i], self.bort_net[3][1][:i])
+            ax1_0.plot(self.bort_net[4][0][:i], self.bort_net[4][1][:i])
+            # if i >= len(self.x_bort_net):
+            #     manager = plt.get_current_fig_manager()
+            #     manager.destroy()
         def animate_fuel(i):
             ax2.clear()
-            ax2.plot(self.x_fuel[:i], self.y_fuel[:i])
-            if i >= len(self.x_fuel):
-                manager = plt.get_current_fig_manager()
-                manager.destroy()
+            ax2.plot(self.fuel[0][0][:i], self.fuel[0][1][:i])
+            ax2.plot(self.fuel[1][0][:i], self.fuel[1][1][:i])
+            ax2.plot(self.fuel[2][0][:i], self.fuel[2][1][:i])
+            ax2.plot(self.fuel[3][0][:i], self.fuel[3][1][:i])
+            ax2.plot(self.fuel[4][0][:i], self.fuel[4][1][:i])
+            # if i >= len(self.x_fuel):
+            #     manager = plt.get_current_fig_manager()
+            #     manager.destroy()
         def animate_battery(i):
             ax3.clear()
             ax3.plot(self.x_battery[:i], self.y_battery[:i])
-            if i >= len(self.x_battery):
-                manager = plt.get_current_fig_manager()
-                manager.destroy()
+            # if i >= len(self.x_battery):
+            #     manager = plt.get_current_fig_manager()
+            #     manager.destroy()
         ani_bort_net = animation.FuncAnimation(fig1, animate_bort_net, interval=1000)
         ani_fuel = animation.FuncAnimation(fig2, animate_fuel, interval=1000)
         ani_battery = animation.FuncAnimation(fig3, animate_battery, interval=1000)
