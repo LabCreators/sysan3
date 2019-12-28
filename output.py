@@ -4,7 +4,6 @@ import matplotlib.animation as animation
 from matplotlib import style
 from numpy.polynomial import Polynomial as pnm
 from os import name as os_name
-import parser
 
 from solve import Solve
 import basis_gen as b_gen
@@ -30,41 +29,34 @@ class PolynomialBuilder(object):
         self.maxX = [X.max(axis=0).getA1() for X in solution.X_]
         self.minY = solution.Y_.min(axis=0).getA1()
         self.maxY = solution.Y_.max(axis=0).getA1()
-        self.x_bort_net = [1,2,3,4,5,6,7,8,9,10]
-        self.y_bort_net = [23,28,23,28,23,28,23,28,23,28]
-        self.bort_net = self.parse(1)
-        self.x_fuel = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
-        self.y_fuel = [50, 60, 50, 60, 50, 60, 50, 60, 50, 60]
-        self.x_battery = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
-        self.y_battery = [23, 28, 23, 28, 23, 28, 23, 28, 23, 28]
+        self.bort_net = self.parse("Data/2,2,2,T(x)multi,norm,10,Reanim/Graphics0.txt")
+        self.fuel = self.parse("Data/2,2,2,T(x)multi,norm,10,Reanim/Graphics1.txt")
+        self.battery = self.parse("Data/2,2,2,T(x)multi,norm,10,Reanim/Graphics2.txt")
         self.current_time = 0
 
-    def parse(self, iteration):
-        f = open("bort_net", 'r')
-        # 627 iterations count, 5 number of charts, 60 max number of
-        # points, 2 point`s dimension
-        arrs = np.zeros((5, 2, 60), dtype='float')
-        content = f.read()
-        arrays = content.split("\t\n")
-        for index_array, arr in enumerate(arrays):
-            raw_points = arr.split(" )	( ")
-            for index_point, point in enumerate(raw_points):
-                xy = point.split(", ")
-                if index_array == 4:
-                    if index_point == 0:
-                        arrs[index_array][0][index_point + 50] = 490
-                        arrs[index_array][1][index_point + 50] = float(xy[1].replace(",", "."))
-                    else:
-                        arrs[index_array][0][index_point + 50] = float(xy[0])
-                        arrs[index_array][1][index_point + 50] = float(xy[1].replace(",", ".").replace(" )", ""))
-                else:
-                    if index_point == 0:
-                        arrs[index_array][0][index_point] = 0
-                        arrs[index_array][1][index_point] = float(xy[1].replace(",", "."))
-                    else:
-                        arrs[index_array][0][index_point] = float(xy[0])
-                        arrs[index_array][1][index_point] = float(xy[1].replace(",", ".").replace(" )", ""))
-        return arrs
+    def parse_row(self, row):
+        a = np.array(list(map(lambda x: np.array([el.replace(' ', '').replace(',', '.') for el
+                                                  in x.replace('(', '').replace(')', '').strip().split(', ')]),
+                              row.split('\t'))))
+
+        x = [float(el[0]) for el in a if el[0]]
+        y = [float(el[1]) for el in a if len(el) > 1 and el[1]]
+
+        return [x, y]
+
+    def parse(self, filename):
+        file = open(filename, 'r', encoding='utf-16')
+        data = file.readlines()
+        data = [el for el in data if el.find('iteration') == -1]
+
+        res_data = list(map(lambda x: self.parse_row(x), data))
+        all_dt = [res_data[i: i + 6] for i in range(0, len(res_data), 6)]
+
+        for iter, dt in enumerate(all_dt):
+            for d in dt[0:5]:
+                d[0] = [i + iter * 30 for i in d[0]]
+
+        return [el[:-1] + [el[-1][0]] for el in all_dt]
 
     def _form_lamb_lists(self):
         """
@@ -204,45 +196,51 @@ class PolynomialBuilder(object):
         return '\n'.join(psi_strings + phi_strings + f_strings + f_strings_transformed + f_strings_transformed_denormed)
 
     def plot_in_realtime(self):
-        style.use('fivethirtyeight')
+        #style.use('fivethirtyeight')
 
         #bort_net
         fig1 = plt.figure()
-        ax1_0 = fig1.add_subplot(1, 1, 1)
+        ax1 = fig1.add_subplot(1, 1, 1)
 
+        #fuel
         fig2 = plt.figure()
-        ax2 = fig2.add_subplot(1,1,1)
+        ax2 = fig2.add_subplot(1, 1, 1)
+
         fig3 = plt.figure()
         ax3 = fig3.add_subplot(1, 1, 1)
         def animate_bort_net(i):
-            ax1_0.clear()
-            ax1_0.plot(self.bort_net[0][0][:i], self.bort_net[0][1][:i])
-            ax1_0.plot(self.bort_net[1][0][:i], self.bort_net[1][1][:i])
-            ax1_0.plot(self.bort_net[2][0][:i], self.bort_net[2][1][:i])
-            ax1_0.plot(self.bort_net[3][0][:i], self.bort_net[3][1][:i])
-            ax1_0.plot(self.bort_net[4][0][:i], self.bort_net[4][1][:i])
+            ax1.clear()
+            ax1.plot(self.bort_net[i][0][0] , self.bort_net[i][0][1] )
+            ax1.plot(self.bort_net[i][1][0] , self.bort_net[i][1][1] )
+            ax1.plot(self.bort_net[i][2][0] , self.bort_net[i][2][1] )
+            ax1.plot(self.bort_net[i][3][0] , self.bort_net[i][3][1] )
+            #ax1.plot(self.bort_net[i][4][0] , self.bort_net[i][4][1] )
             # if i >= len(self.x_bort_net):
             #     manager = plt.get_current_fig_manager()
             #     manager.destroy()
         def animate_fuel(i):
             ax2.clear()
-            ax2.plot(self.fuel[0][0][:i], self.fuel[0][1][:i])
-            ax2.plot(self.fuel[1][0][:i], self.fuel[1][1][:i])
-            ax2.plot(self.fuel[2][0][:i], self.fuel[2][1][:i])
-            ax2.plot(self.fuel[3][0][:i], self.fuel[3][1][:i])
-            ax2.plot(self.fuel[4][0][:i], self.fuel[4][1][:i])
+            ax2.plot(self.fuel[i][0][0] , self.fuel[i][0][1] )
+            ax2.plot(self.fuel[i][1][0] , self.fuel[i][1][1] )
+            ax2.plot(self.fuel[i][2][0] , self.fuel[i][2][1] )
+            ax2.plot(self.fuel[i][3][0] , self.fuel[i][3][1] )
+            #ax2.plot(self.fuel[i][4][0] , self.fuel[i][4][1] )
             # if i >= len(self.x_fuel):
             #     manager = plt.get_current_fig_manager()
             #     manager.destroy()
         def animate_battery(i):
             ax3.clear()
-            ax3.plot(self.x_battery[:i], self.y_battery[:i])
+            ax3.plot(self.battery[i][0][0], self.battery[i][0][1])
+            ax3.plot(self.battery[i][1][0], self.battery[i][1][1])
+            ax3.plot(self.battery[i][2][0], self.battery[i][2][1])
+            ax3.plot(self.battery[i][3][0], self.battery[i][3][1])
+            #ax3.plot(self.battery[i][4][0], self.battery[i][4][1])
             # if i >= len(self.x_battery):
             #     manager = plt.get_current_fig_manager()
             #     manager.destroy()
-        ani_bort_net = animation.FuncAnimation(fig1, animate_bort_net, interval=1000)
-        ani_fuel = animation.FuncAnimation(fig2, animate_fuel, interval=1000)
-        ani_battery = animation.FuncAnimation(fig3, animate_battery, interval=1000)
+        ani_bort_net = animation.FuncAnimation(fig1, animate_bort_net, interval=200)
+        ani_fuel = animation.FuncAnimation(fig2, animate_fuel, interval=200)
+        ani_battery = animation.FuncAnimation(fig3, animate_battery, interval=200)
         plt.show()
         return "Автомобіль йобнувся"
 
