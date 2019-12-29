@@ -46,7 +46,8 @@ class PolynomialBuilder(object):
         file = open(filename, 'r', encoding='utf-16')
         data = file.readlines()
         table = [line.split("\t") for line in data]
-        return table
+        table = filter(lambda dat: int(dat[0]) % 2 == 0, table)
+        return list(table)
 
     def parse_row(self, row):
         a = np.array(list(map(lambda x: np.array([el.replace(' ', '').replace(',', '.') for el
@@ -65,10 +66,6 @@ class PolynomialBuilder(object):
 
         res_data = list(map(lambda x: self.parse_row(x), data))
         all_dt = [res_data[i: i + 6] for i in range(0, len(res_data), 6)]
-
-        # for iter, dt in enumerate(all_dt):
-        #     for d in dt[0:4]:
-        #         d[0] = [i + iter * 20 for i in d[0]]
 
         return [el[:-1] + [el[-1][0]] for el in all_dt]
 
@@ -249,7 +246,7 @@ class PolynomialBuilder(object):
             ax1.plot(self.bort_net[i][3][0] , self.bort_net[i][3][1] )
             ax1.plot(self.bort_net[i][4][0] , self.bort_net[i][4][1])
             time = QTableWidgetItem()
-            time.setText(self.table[i][0])
+            time.setText(self.table[i][0] + '0')
             bort_net_val = QTableWidgetItem()
             bort_net_val.setText(self.table[i][1])
             fuel_val = QTableWidgetItem()

@@ -26,11 +26,14 @@ def parse(filename):
 
     return [el[:-1] + [el[-1][0]] for el in all_dt]
 
+
 def parsetable(filename):
     file = open(filename, 'r', encoding='utf-16')
     data = file.readlines()
     table = [line.split("\t") for line in data]
-    return table
+    table = filter(lambda dat: int(dat[0]) % 2 == 0, table)
+    return list(table)
+
 
 df = parsetable('Data/2,2,2,T(x),norm,10,Reanim/Table.txt')
 
