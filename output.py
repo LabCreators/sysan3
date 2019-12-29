@@ -239,6 +239,7 @@ class PolynomialBuilder(object):
         )
         def animate_bort_net(i):
             ax1.clear()
+            ax1.set_title("Напруга бортової мережі")
             ax1.set_ylim([self.bort_net[i][5][2],self.bort_net[i][5][3]])
             ax1.plot(self.bort_net[i][0][0] , self.bort_net[i][0][1] )
             ax1.plot(self.bort_net[i][1][0] , self.bort_net[i][1][1] )
@@ -285,6 +286,7 @@ class PolynomialBuilder(object):
             #     manager.destroy()
         def animate_fuel(i):
             ax2.clear()
+            ax2.set_title("Паливо")
             ax2.set_ylim([self.fuel[i][5][2],self.fuel[i][5][3]])
             ax2.plot(self.fuel[i][0][0] , self.fuel[i][0][1] )
             ax2.plot(self.fuel[i][1][0] , self.fuel[i][1][1] )
@@ -297,6 +299,7 @@ class PolynomialBuilder(object):
             #     manager.destroy()
         def animate_battery(i):
             ax3.clear()
+            ax3.set_title("Напруга акамуляторної батареї")
             ax3.set_ylim([self.battery[i][5][2],self.battery[i][5][3]])
             ax3.plot(self.battery[i][0][0], self.battery[i][0][1])
             ax3.plot(self.battery[i][1][0], self.battery[i][1][1])
