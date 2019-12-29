@@ -8,31 +8,45 @@ from os import name as os_name
 from solve import Solve
 import basis_gen as b_gen
 import itertools
+from PyQt5.QtWidgets import QTableWidgetItem
+
+from tabulate import tabulate as tb
 
 class PolynomialBuilder(object):
     def __init__(self, solution):
-        assert isinstance(solution, Solve)
-        self._solution = solution
-        max_degree = max(solution.deg) - 1
-        if solution.poly_type == 'combined_cheb':
-            self.symbol = 'CC'
-        elif solution.poly_type == 'laguerre':
-            self.symbol = 'L'
-            self.basis = b_gen.basis_laguerre(max_degree)
-        elif solution.poly_type == 'sh_cheb_2':
-            self.symbol = 'U'
-            self.basis = b_gen.basis_sh_chebyshev_2_shrinked(max_degree)
-        assert self.symbol
-        self.a = solution.a.T.tolist()
-        self.c = solution.c.T.tolist()
-        self.minX = [X.min(axis=0).getA1() for X in solution.X_]
-        self.maxX = [X.max(axis=0).getA1() for X in solution.X_]
-        self.minY = solution.Y_.min(axis=0).getA1()
-        self.maxY = solution.Y_.max(axis=0).getA1()
-        self.bort_net = self.parse("Data/2,2,2,T(x)multi,norm,10,Reanim/Graphics0.txt")
-        self.fuel = self.parse("Data/2,2,2,T(x)multi,norm,10,Reanim/Graphics1.txt")
-        self.battery = self.parse("Data/2,2,2,T(x)multi,norm,10,Reanim/Graphics2.txt")
+        # assert isinstance(solution, Solve)
+        # self._solution = solution
+        # max_degree = max(solution.deg) - 1
+        # if solution.poly_type == 'combined_cheb':
+        #     self.symbol = 'CC'
+        # elif solution.poly_type == 'laguerre':
+        #     self.symbol = 'L'
+        #     self.basis = b_gen.basis_laguerre(max_degree)
+        # elif solution.poly_type == 'sh_cheb_2':
+        #     self.symbol = 'U'
+        #     self.basis = b_gen.basis_sh_chebyshev_2_shrinked(max_degree)
+        # assert self.symbol
+        # self.a = solution.a.T.tolist()
+        # self.c = solution.c.T.tolist()
+        # self.minX = [X.min(axis=0).getA1() for X in solution.X_]
+        # self.maxX = [X.max(axis=0).getA1() for X in solution.X_]
+        # self.minY = solution.Y_.min(axis=0).getA1()
+        # self.maxY = solution.Y_.max(axis=0).getA1()
+        self.resultsField = solution.resultsField
+        self.bort_net = self.parse("Data/2,2,2,T(x),norm,10,Reanim/Graphics0.txt")
+        self.fuel = self.parse("Data/2,2,2,T(x),norm,10,Reanim/Graphics1.txt")
+        self.battery = self.parse("Data/2,2,2,T(x),norm,10,Reanim/Graphics2.txt")
+        self.table = self.parsetable("Data/2,2,2,T(x),norm,10,Reanim/Table.txt")
         self.current_time = 0
+        self.ani_bort_net = None
+        self.ani_fuel = None
+        self.ani_battery = None
+
+    def parsetable(self, filename):
+        file = open(filename, 'r', encoding='utf-16')
+        data = file.readlines()
+        table = [line.split("\t") for line in data]
+        return table
 
     def parse_row(self, row):
         a = np.array(list(map(lambda x: np.array([el.replace(' ', '').replace(',', '.') for el
@@ -52,9 +66,9 @@ class PolynomialBuilder(object):
         res_data = list(map(lambda x: self.parse_row(x), data))
         all_dt = [res_data[i: i + 6] for i in range(0, len(res_data), 6)]
 
-        for iter, dt in enumerate(all_dt):
-            for d in dt[0:5]:
-                d[0] = [i + iter * 30 for i in d[0]]
+        # for iter, dt in enumerate(all_dt):
+        #     for d in dt[0:4]:
+        #         d[0] = [i + iter * 20 for i in d[0]]
 
         return [el[:-1] + [el[-1][0]] for el in all_dt]
 
@@ -195,6 +209,18 @@ class PolynomialBuilder(object):
                                           for i in range(self._solution.Y.shape[1])]
         return '\n'.join(psi_strings + phi_strings + f_strings + f_strings_transformed + f_strings_transformed_denormed)
 
+    def pause(self):
+        if self.ani_battery:
+            self.ani_battery.event_source.stop()
+            self.ani_bort_net.event_source.stop()
+            self.ani_fuel.event_source.stop()
+
+    def resume(self):
+        if self.ani_battery:
+            self.ani_battery.event_source.start()
+            self.ani_bort_net.event_source.start()
+            self.ani_fuel.event_source.start()
+
     def plot_in_realtime(self):
         #style.use('fivethirtyeight')
 
@@ -208,41 +234,84 @@ class PolynomialBuilder(object):
 
         fig3 = plt.figure()
         ax3 = fig3.add_subplot(1, 1, 1)
+        self.resultsField.setRowCount(len(self.table))
+        self.resultsField.setColumnCount(8)
+        self.resultsField.setHorizontalHeaderLabels(
+            ['Час', 'Напрога бортової мережі', 'Пальне', 'Напруга акумулятора', 'Cтан', 'Ризик аварії', 'Причина нештатної ситуації'
+            , 'Рівень небезпеки', 'Ресурс доп. ризику']
+        )
         def animate_bort_net(i):
             ax1.clear()
+            ax1.set_ylim([self.bort_net[i][5][2],self.bort_net[i][5][3]])
             ax1.plot(self.bort_net[i][0][0] , self.bort_net[i][0][1] )
             ax1.plot(self.bort_net[i][1][0] , self.bort_net[i][1][1] )
             ax1.plot(self.bort_net[i][2][0] , self.bort_net[i][2][1] )
             ax1.plot(self.bort_net[i][3][0] , self.bort_net[i][3][1] )
-            #ax1.plot(self.bort_net[i][4][0] , self.bort_net[i][4][1] )
+            ax1.plot(self.bort_net[i][4][0] , self.bort_net[i][4][1])
+            time = QTableWidgetItem()
+            time.setText(self.table[i][0])
+            bort_net_val = QTableWidgetItem()
+            bort_net_val.setText(self.table[i][1])
+            fuel_val = QTableWidgetItem()
+            fuel_val.setText(self.table[i][2])
+            battery_val = QTableWidgetItem()
+            battery_val.setText(self.table[i][3])
+            state = QTableWidgetItem()
+            state.setText(self.table[i][4])
+            state = QTableWidgetItem()
+            state.setText(self.table[i][4])
+            state = QTableWidgetItem()
+            state.setText(self.table[i][4])
+            risk = QTableWidgetItem()
+            risk.setText(self.table[i][5])
+            cause = QTableWidgetItem()
+            cause.setText(self.table[i][6])
+            level = QTableWidgetItem()
+            level.setText(self.table[i][7])
+            resource = QTableWidgetItem()
+            resource.setText(self.table[i][8])
+
+            self.resultsField.setItem(i, 0, time)
+            self.resultsField.setItem(i, 1, bort_net_val)
+            self.resultsField.setItem(i, 2, fuel_val)
+            self.resultsField.setItem(i, 3, battery_val)
+            self.resultsField.setItem(i, 4, state)
+            self.resultsField.setItem(i, 5, risk)
+            self.resultsField.setItem(i, 6, cause)
+            self.resultsField.setItem(i, 7, level)
+            self.resultsField.setItem(i, 8, resource)
+            self.resultsField.resizeColumnsToContents()
+
             # if i >= len(self.x_bort_net):
             #     manager = plt.get_current_fig_manager()
             #     manager.destroy()
         def animate_fuel(i):
             ax2.clear()
+            ax2.set_ylim([self.fuel[i][5][2],self.fuel[i][5][3]])
             ax2.plot(self.fuel[i][0][0] , self.fuel[i][0][1] )
             ax2.plot(self.fuel[i][1][0] , self.fuel[i][1][1] )
             ax2.plot(self.fuel[i][2][0] , self.fuel[i][2][1] )
             ax2.plot(self.fuel[i][3][0] , self.fuel[i][3][1] )
-            #ax2.plot(self.fuel[i][4][0] , self.fuel[i][4][1] )
+            ax2.plot(self.fuel[i][4][0] , self.fuel[i][4][1] )
             # if i >= len(self.x_fuel):
             #     manager = plt.get_current_fig_manager()
             #     manager.destroy()
         def animate_battery(i):
             ax3.clear()
+            ax3.set_ylim([self.battery[i][5][2],self.battery[i][5][3]])
             ax3.plot(self.battery[i][0][0], self.battery[i][0][1])
             ax3.plot(self.battery[i][1][0], self.battery[i][1][1])
             ax3.plot(self.battery[i][2][0], self.battery[i][2][1])
             ax3.plot(self.battery[i][3][0], self.battery[i][3][1])
-            #ax3.plot(self.battery[i][4][0], self.battery[i][4][1])
+            ax3.plot(self.battery[i][4][0], self.battery[i][4][1])
             # if i >= len(self.x_battery):
             #     manager = plt.get_current_fig_manager()
             #     manager.destroy()
-        ani_bort_net = animation.FuncAnimation(fig1, animate_bort_net, interval=200)
-        ani_fuel = animation.FuncAnimation(fig2, animate_fuel, interval=200)
-        ani_battery = animation.FuncAnimation(fig3, animate_battery, interval=200)
+        self.ani_bort_net = animation.FuncAnimation(fig1, animate_bort_net, interval=200)
+        self.ani_fuel = animation.FuncAnimation(fig2, animate_fuel, interval=200)
+        self.ani_battery = animation.FuncAnimation(fig3, animate_battery, interval=200)
         plt.show()
-        return "Автомобіль йобнувся"
+        return "The end"
 
 
     def plot_graphs(self):

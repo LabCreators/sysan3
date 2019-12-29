@@ -33,8 +33,8 @@ from task_solution_custom import SolveCustom
 
 app = QApplication(sys.argv)
 app.setApplicationName('lab3_sa')
-#from main_window import Ui_Form
-from new_main import Ui_Form
+from main_window import Ui_Form
+#from new_main import Ui_Form
 #from MAIN_WINDOW import Ui_Form
 from bruteforce import BruteForceWindow
 
@@ -52,8 +52,7 @@ class MainWindow(QDialog, Ui_Form):
         self.setupUi(self)
 
         # other initializations
-        self.dimensions = [self.x1_dim.value(), self.x2_dim.value(),
-                                    self.x3_dim.value(), self.y_dim.value()]
+        self.dimensions = [2, 2, 2, 2]
         self.degrees = [self.x1_deg.value(), self.x2_deg.value(), self.x3_deg.value()]
         self.type = 'null'
         if self.radio_combined_cheb.isChecked():
@@ -62,30 +61,20 @@ class MainWindow(QDialog, Ui_Form):
             self.type = 'laguerre'
         elif self.radio_sh_cheb_2.isChecked():
             self.type = 'sh_cheb_2'
-        self.method = 'grad'
-        if self.radioConjucateGrad.isChecked():
-            self.method = 'grad'
-        elif self.radioConjucateGrad.isChecked():
-            self.method = 'conjucateGrad'
-        elif self.radioLSTM.isChecked():
-            self.method = 'lstm'
-        elif self.radioCoord.isChecked():
-            self.method = 'coord'
-        self.custom_func_struct = self.custom_check.isChecked()
-        self.input_path = self.line_input.text()
-        self.output_path = self.line_output.text()
-        self.samples_num = self.sample_spin.value()
-        self.lambda_multiblock = self.lambda_check.isChecked()
+        self.method = 'lstm'
+        self.data_type = 'norma'
+        if self.radio_norma.isChecked():
+            self.data_type = 'norma'
+        elif self.radio_reanim3.isChecked():
+            self.data_type = 'reanim3'
+        self.custom_func_struct = False
+        self.input_path = "Data/dst(48,2,2,2,2).txt"
+        self.output_path = "Output.csv"
+        self.samples_num = 48
+        self.lambda_multiblock = True
         self.weight_method = self.weights_box.currentText().lower()
-        self.custom_method = self.custom_box.currentText().lower()
+        self.custom_method = False
         self.solution = None
-        doc = self.results_field.document()
-        assert isinstance(doc, QTextDocument)
-        font = doc.defaultFont()
-        assert isinstance(font, QFont)
-        font.setFamily('Courier New')
-        font.setPixelSize(12)
-        doc.setDefaultFont(font)
         return
 
     @pyqtSlot()
@@ -176,47 +165,56 @@ class MainWindow(QDialog, Ui_Form):
         return
 
     @pyqtSlot(bool)
+    def data_changed(self, isdown):
+        if (isdown):
+            sender = self.sender().objectName()
+            if sender == 'radio_norma':
+                self.data_type = 'norma'
+            elif sender == 'radio_reanim3':
+                self.data_type = 'reanim3'
+        return
+
+    @pyqtSlot(bool)
     def structure_changed(self, isdown):
         self.custom_func_struct = isdown
 
     @pyqtSlot()
     def plot_clicked(self):
         if self.solution:
+            self.pauseButton.setDisabled(False)
+            self.plot_button.setDisabled(True)
             message = self.solution.plot_in_realtime()
             QMessageBox.warning(self, 'Ура!', message)
-            # arima_st = self.predictBox.value()
-            # try:
-            #     if arima_st > 0:
-            #         self.solution.plot_graphs_with_prediction(arima_st)
-            #     else:
-            #         self.solution.plot_graphs()
-            # except Exception as e:
-            #     QMessageBox.warning(self,'Error!','Error happened during plotting: ' + str(e))
+        return
+
+    @pyqtSlot()
+    def pause_clicked(self):
+        if self.solution:
+            self.solution.pause()
+            self.pauseButton.setDisabled(True)
+            self.resumeButton.setDisabled(False)
+        return
+
+    @pyqtSlot()
+    def resume_clicked(self):
+        if self.solution:
+            self.solution.resume()
+            self.pauseButton.setDisabled(False)
+            self.resumeButton.setDisabled(True)
         return
 
     @pyqtSlot()
     def exec_clicked(self):
         self.exec_button.setEnabled(False)
+        self.predLength = int(self.predictionLength.text() if self.predictionLength.text() != '' else '10')
         try:
-            if self.custom_func_struct:
-                solver = SolveCustom(self._get_params()) #SolveExpTh(self._get_params())
-                solver.prepare()
-                self.solution = PolynomialBuilderSigmoid(solver) #PolynomialBuilderExpTh(solver)
-                self.results_field.setText(solver.show()+'\n\n'+self.solution.get_results())
-            else:
-                solver = Solve(self._get_params())
-                solver.prepare()
-                self.solution = PolynomialBuilder(solver)
-                self.results_field.setText(solver.show()+'\n\n'+self.solution.get_results())
+            solver = Solve(self._get_params())
+            self.solution = PolynomialBuilder(solver)
         except Exception as e:
             QMessageBox.warning(self,'Error!','Error happened during execution: ' + str(e))
-        self.exec_button.setEnabled(True)
+        self.plot_button.setEnabled(True)
         return
 
-    @pyqtSlot()
-    def bruteforce_called(self):
-        BruteForceWindow.launch(self)
-        return
 
     @pyqtSlot(int, int, int)
     def update_degrees(self, x1_deg, x2_deg, x3_deg):
@@ -225,30 +223,20 @@ class MainWindow(QDialog, Ui_Form):
         self.x3_deg.setValue(x3_deg)
         return
 
-    @pyqtSlot(bool)
-    def lambda_calc_method_changed(self, isdown):
-        self.lambda_multiblock = isdown
-        return
-
     @pyqtSlot('QString')
     def weights_modified(self, value):
         self.weight_method = value.lower()
         return
 
-    @pyqtSlot('QString')
-    def custom_modified(self, value):
-        self.custom_method = value.lower()
-        return
-
     def _get_params(self):
         return dict(poly_type=self.type, solving_method=self.method, degrees=self.degrees, dimensions=self.dimensions,
-                    samples=self.samples_num, input_file=self.input_path, output_file=self.output_path,
+                    samples=self.samples_num, input_file="Data/dst(48,2,2,2,2).txt", output_file=self.output_path,
                     weights=self.weight_method, lambda_multiblock=self.lambda_multiblock, custom=self.custom_func_struct,
-                    custom_method=self.custom_method)
+                    custom_method=self.custom_method, predLength=self.predLength, results_field=self.tableWidget)
 
 
 # -----------------------------------------------------#
 form = MainWindow()
-form.setWindowTitle('System Analysis - Lab3')
+form.setWindowTitle('System Analysis - Lab4')
 form.show()
 sys.exit(app.exec_())

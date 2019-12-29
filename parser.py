@@ -26,6 +26,12 @@ def parse(filename):
 
     return [el[:-1] + [el[-1][0]] for el in all_dt]
 
-df = parse('Data/2,2,2,T(x),norm,10,Reanim/Graphics0.txt')
+def parsetable(filename):
+    file = open(filename, 'r', encoding='utf-16')
+    data = file.readlines()
+    table = [line.split("\t") for line in data]
+    return table
 
-print(len(df[500][1]))
+df = parsetable('Data/2,2,2,T(x),norm,10,Reanim/Table.txt')
+
+print(df)

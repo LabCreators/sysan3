@@ -96,6 +96,7 @@ class Solve(object):
         self.custom_func_struct = d['custom']
         self.solving_method = d['solving_method']
         self.custom_method = d['custom_method']
+        self.resultsField = d['results_field']
 
     def define_data(self):
         f = open(self.filename_input, 'r')
