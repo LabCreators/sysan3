@@ -245,6 +245,7 @@ class PolynomialBuilder(object):
             ax1.plot(self.bort_net[i][2][0] , self.bort_net[i][2][1] )
             ax1.plot(self.bort_net[i][3][0] , self.bort_net[i][3][1] )
             ax1.plot(self.bort_net[i][4][0] , self.bort_net[i][4][1])
+            ax1.legend(['Нештатна ситуація', 'Аварія', 'Y', 'Відновлена функціональна залежність', 'Прогноз'])
             time = QTableWidgetItem()
             time.setText(self.table[i][0] + '0')
             bort_net_val = QTableWidgetItem()
@@ -290,6 +291,7 @@ class PolynomialBuilder(object):
             ax2.plot(self.fuel[i][2][0] , self.fuel[i][2][1] )
             ax2.plot(self.fuel[i][3][0] , self.fuel[i][3][1] )
             ax2.plot(self.fuel[i][4][0] , self.fuel[i][4][1] )
+            ax2.legend(['Нештатна ситуація', 'Аварія', 'Y', 'Відновлена функціональна залежність', 'Прогноз'])
             # if i >= len(self.x_fuel):
             #     manager = plt.get_current_fig_manager()
             #     manager.destroy()
@@ -301,6 +303,7 @@ class PolynomialBuilder(object):
             ax3.plot(self.battery[i][2][0], self.battery[i][2][1])
             ax3.plot(self.battery[i][3][0], self.battery[i][3][1])
             ax3.plot(self.battery[i][4][0], self.battery[i][4][1])
+            ax3.legend(['Нештатна ситуація', 'Аварія', 'Y', 'Відновлена функціональна залежність', 'Прогноз'])
             # if i >= len(self.x_battery):
             #     manager = plt.get_current_fig_manager()
             #     manager.destroy()
