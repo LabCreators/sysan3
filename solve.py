@@ -97,6 +97,10 @@ class Solve(object):
         self.solving_method = d['solving_method']
         self.custom_method = d['custom_method']
         self.resultsField = d['results_field']
+        self.data = d['data']
+        self.modeltype = d['modeltype']
+        self.predlength = d['predlength']
+        self.poldegree = d['poldegree']
 
     def define_data(self):
         f = open(self.filename_input, 'r')

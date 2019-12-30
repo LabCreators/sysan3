@@ -62,11 +62,11 @@ class MainWindow(QDialog, Ui_Form):
         elif self.radio_sh_cheb_2.isChecked():
             self.type = 'sh_cheb_2'
         self.method = 'lstm'
-        self.data_type = 'norma'
+        self.data_type = '0'
         if self.radio_norma.isChecked():
-            self.data_type = 'norma'
+            self.data_type = '0'
         elif self.radio_reanim3.isChecked():
-            self.data_type = 'reanim3'
+            self.data_type = '1'
         self.custom_func_struct = False
         self.input_path = "Data/dst(48,2,2,2,2).txt"
         self.output_path = "Output.csv"
@@ -75,6 +75,8 @@ class MainWindow(QDialog, Ui_Form):
         self.weight_method = self.weights_box.currentText().lower()
         self.custom_method = False
         self.solution = None
+        self.model = '1'
+        self.predLength = '10'
         return
 
     @pyqtSlot()
@@ -150,6 +152,7 @@ class MainWindow(QDialog, Ui_Form):
                 self.type = 'sh_cheb_2'
         return
 
+
     @pyqtSlot(bool)
     def method_modified(self, isdown):
         if (isdown):
@@ -169,9 +172,9 @@ class MainWindow(QDialog, Ui_Form):
         if (isdown):
             sender = self.sender().objectName()
             if sender == 'radio_norma':
-                self.data_type = 'norma'
+                self.data_type = '0'
             elif sender == 'radio_reanim3':
-                self.data_type = 'reanim3'
+                self.data_type = '1'
         return
 
     @pyqtSlot(bool)
@@ -206,7 +209,6 @@ class MainWindow(QDialog, Ui_Form):
     @pyqtSlot()
     def exec_clicked(self):
         self.exec_button.setEnabled(False)
-        self.predLength = int(self.predictionLength.text() if self.predictionLength.text() != '' else '10')
         try:
             solver = Solve(self._get_params())
             self.solution = PolynomialBuilder(solver)
@@ -228,11 +230,25 @@ class MainWindow(QDialog, Ui_Form):
         self.weight_method = value.lower()
         return
 
+    @pyqtSlot('QString')
+    def prediction_modified(self, value):
+        self.predLength = value.lower()
+        return
+
+    @pyqtSlot('QString')
+    def model_modified(self, value):
+        if value.lower() == "multiplicative":
+            self.model = '1'
+        else:
+            self.model = '0'
+        return
+
     def _get_params(self):
         return dict(poly_type=self.type, solving_method=self.method, degrees=self.degrees, dimensions=self.dimensions,
                     samples=self.samples_num, input_file="Data/dst(48,2,2,2,2).txt", output_file=self.output_path,
                     weights=self.weight_method, lambda_multiblock=self.lambda_multiblock, custom=self.custom_func_struct,
-                    custom_method=self.custom_method, predLength=self.predLength, results_field=self.tableWidget)
+                    custom_method=self.custom_method, predLength=self.predLength, results_field=self.tableWidget,
+                    data=self.data_type, modeltype=self.model, predlength=self.predLength, poldegree=self.degrees)
 
 
 # -----------------------------------------------------#
@@ -240,3 +256,4 @@ form = MainWindow()
 form.setWindowTitle('System Analysis - Lab4')
 form.show()
 sys.exit(app.exec_())
+#python -m PyQt5.uic.pyuic main_window.ui -o main_window.py -x

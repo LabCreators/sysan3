@@ -3,8 +3,8 @@
 block_cipher = None
 
 
-a = Analysis(['main.py', '__init__.py', 'arima.py', 'basis_gen.py', 'bruteforce.py', 'bruteforce_window.py', 'calculate_optimal_degrees.py', 'depict_poly.py', 'main_window.py', 'output.py', 'solve.py', 'syst_solution.py', 'task_solution.py'],
-             pathex=['D:\\КПИ им. Сикорского\\Системный анализ\\Smirnov_Lab3\\sysan3'],
+a = Analysis(['main.py', '__init__.py', 'arima.py', 'basis_gen.py', 'depict_poly.py', 'bruteforce.py', 'bruteforce_window.py', 'calculate_optimal_degrees.py', 'main_window.py', 'new_main.py', 'output.py', 'parser.py', 'solve.py', 'syst_solution.py', 'task_solution.py', 'task_solution_custom.py'],
+             pathex=['C:\\Users\\Roman\\PycharmProjects\\sysan3_new'],
              binaries=[],
              datas=[],
              hiddenimports=[],
